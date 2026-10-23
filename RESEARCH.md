@@ -1,7 +1,7 @@
 # RESEARCH.md: 요청 처리 모델과 HikariCP 풀 크기
 
 > 이 파일은 연구의 단일 기준 문서입니다. 새 세션(Claude Code 포함)은 이 파일을 가장 먼저 읽고 시작합니다.
-> 상태: 기획 단계 (파일럿 전). 최종 수정: 2026-10-22 (종합본 v0.3).
+> 상태: 기획 단계 (파일럿 전). 최종 수정: 2026-10-23 (v0.4.1).
 > 논문화 여부는 파일럿 이후 결정합니다. 어느 쪽이든 코드, 데이터, 실험 노트는 공개 저장소로 남깁니다.
 > "확인 필요"로 표시된 항목은 제가 아는 범위에서 정리한 것이므로 공식 문서나 원문으로 확인한 뒤 이 문서에 기록합니다.
 
@@ -69,10 +69,12 @@ Spring Boot(Kotlin)에서 요청 처리 모델(플랫폼 스레드풀 / 가상 �
 - **Kotlin Spring Boot 단일 프로젝트**에서 프로파일(`platform` / `virtual` / `coroutine`)로 처리 모델을 전환한다. 언어가 변수로 끼어들지 않고 서비스·레포지토리 로직을 공유한다. 모델마다 달라지는 것은 컨트롤러 쪽뿐이다.
 - **서버 스택 통일**: 세 모델 모두 같은 서버(Tomcat + Spring MVC) 위에서 비교하는 것을 목표로 한다. 서버가 다르면 모델 효과와 서버 차이가 섞인다. MVC에서의 `suspend` 컨트롤러 지원 범위는 버전별로 공식 문서로 확인이 필요하며, 불가능하면 대안과 통제 방법을 정한다.
 - **DB 접근**: `JdbcTemplate`(JDBC 직접). JPA/Hibernate는 쓰지 않는다.
+- **버전 고정** (D4, D6): Spring Boot 4.1.1 라인(Spring Framework 7.0.9, Tomcat 11)을 쓰고, HikariCP는 Boot 관리 버전(7.0.2)을 별도 지정 없이 쓴다. 가상 스레드 수정이 들어간 HikariCP 7.1.0은 후속 비교 후보로 둔다.
 - **풀**: HikariCP. 풀 크기는 환경변수로 주입한다.
 - **플랫폼 스레드 프로파일**: 기본 톰캣 스레드풀 (스레드 수는 기록한다).
-- **가상 스레드 프로파일**: Spring Boot 설정으로 켠다 (`spring.threads.virtual.enabled`, Boot 3.2+: 확인 필요).
-- **코루틴 프로파일**: 블로킹 JDBC를 `withContext(Dispatchers.IO)`로 실행하고, 병렬도는 `limitedParallelism`으로 통제 가능하게 한다.
+- **가상 스레드 프로파일**: Spring Boot 설정으로 켠다 (`spring.threads.virtual.enabled=true`, 10.1절에서 확인).
+- **코루틴 프로파일**: 블로킹 JDBC를 `withContext`로 실행한다. 병렬도는 `Dispatchers.IO.limitedParallelism(n)`의 n으로 통제하고, "기본값" 수준은 `Dispatchers.IO` 그대로(64) 둔다 (D2).
+  - MVC에서 suspend 컨트롤러는 비동기 요청 처리를 거친다. 따라서 이 프로파일은 요청마다 디스패치가 한 번 더 일어나고 톰캣 스레드가 DB 대기 동안 반납된다. 이 차이는 코루틴 모델의 본질로 보고 처리 모델 차이로 인정하며, 결과 해석에서 명시한다 (D3).
 - **엔드포인트**: `/query`(쿼리 유형을 파라미터로 선택), `/ping`(DB를 호출하지 않는 기준 엔드포인트)
 - **계측**: Actuator + Micrometer(Prometheus)로 풀 지표를 노출한다.
 - **DB**: PostgreSQL. 작은 테이블과 시드 데이터(PK 조회용).
@@ -104,8 +106,8 @@ Spring Boot(Kotlin)에서 요청 처리 모델(플랫폼 스레드풀 / 가상 �
 | 처리 모델 | 플랫폼 스레드풀 / 가상 스레드 / 코루틴+JDBC(Dispatchers.IO) |
 | HikariCP 풀 크기 | 2, 4, 8, 16, 32, 64, 128 |
 | 쿼리 유형 | 짧은 PK 조회 / 인위적 지연(예: `pg_sleep` 10ms, 50ms) |
-| JDK | 21, 이후 버전 1개 (확인 필요) |
-| IO 병렬도 (코루틴만) | 기본값 / `limitedParallelism` 몇 가지 (값은 파일럿에서 확정) |
+| JDK | 21, 25 (D5: JEP 491이 들어간 24 이후 버전. 25는 LTS로 확인, 10.1절) |
+| IO 병렬도 (코루틴만) | 기본값(`Dispatchers.IO`, 64) / `Dispatchers.IO.limitedParallelism(n)` 몇 가지 (n 값은 파일럿에서 확정) |
 
 **부하 변수**
 - E1: 도착률(건/초)을 단계적으로 올리는 스윕 (범위와 단계는 파일럿에서 확정)
@@ -132,7 +134,7 @@ Spring Boot(Kotlin)에서 요청 처리 모델(플랫폼 스레드풀 / 가상 �
 - 풀 지표 (Micrometer): active, idle, pending, acquire 시간
 - DB 지표: 활성 연결 수, CPU
 - 가상 스레드 핀닝: JFR의 `VirtualThreadPinned` 이벤트 (JDK별 지원 확인)
-- 부하 생성기 건강성: k6의 `dropped_iterations` (0이 아니면 생성기가 도착률을 못 따라간 것이므로 해당 단계는 무효 후보), 생성기 CPU. 지표 이름과 옵션은 환경 구축 시 k6 공식 문서로 확인
+- 부하 생성기 건강성: k6의 `dropped_iterations`와 생성기 CPU (D1). k6 문서에 따르면 드롭은 VU 부족(설정) 외에 서버 응답이 느려져 VU가 모두 묶일 때도 생긴다. 그래서 `maxVUs`를 도착률 × 요청 타임아웃 이상으로 잡아 서버 포화로 인한 VU 부족을 줄이고, 드롭이 남으면 원인을 단정하지 않고 생성기 CPU와 함께 기록해 구분한다. 드롭이 0이 아닌 단계는 무효 후보로 표시하며, 지속 가능 처리량 조건 (b)는 6.6 그대로 적용한다.
 - 환경 지표: Pi 온도와 스로틀링 여부, `/ping` 기준선 지연
 
 ### 6.6 핵심 정의 (사전 고정)
@@ -168,7 +170,7 @@ k6(부하, 주 실험은 arrival-rate executor), Prometheus + Grafana(수집), P
 - 앱은 Kotlin Spring Boot 단일 프로젝트이며 프로파일로 3모델을 전환한다. DB 접근은 JdbcTemplate, ORM은 쓰지 않는다.
 - 가상 스레드는 Spring Boot의 가상 스레드 설정으로 켠다 (메커니즘 차이를 최소화).
 - 주 실험(E1)은 열린 모델(k6 arrival-rate), 닫힌 모델은 보조(E2)로만 쓴다.
-- 지연은 클라이언트에서 측정하고, `dropped_iterations`가 0이 아닌 단계는 부하 생성기 한계로 보고 해석에서 제외 후보로 둔다.
+- 지연은 클라이언트에서 측정하고, `dropped_iterations`가 0이 아닌 단계는 무효 후보로 표시한다. 원인(생성기 한계 또는 서버 포화)은 단정하지 않고 생성기 CPU와 함께 기록해 구분한다 (D1).
 - 환경은 Pi 4B 1대(앱 코어 0-1 + DB 코어 2-3 분리) + 맥북(k6, 모니터링)으로 고정한다. 추가 구매는 하지 않는다.
 - Security, CI/CD 등은 구현하지 않는다 (5장).
 - AI 학습은 취미로 병행하며 이 연구의 범위에 포함하지 않는다.
@@ -219,6 +221,9 @@ MariaDB 블로그 실험이 부분 선행이므로, "병목이 이동한다" 자
 - [x] `Dispatchers.IO` 기본 병렬도 상한과 `limitedParallelism` 동작 (10.1절)
 - [x] k6 arrival-rate executor 옵션(`preAllocatedVUs`, `maxVUs`)과 `dropped_iterations` 지표 (10.1절)
 - [ ] 코어 분리(`cpuset`/`taskset`) 적용 방식, arm64 이미지 지원
+- [x] JDK 25의 LTS 여부와 지원 기간 (D5, 10.1절)
+- [ ] `limitedParallelism(n)`이 n > 64에서 실제로 n개까지 병렬 실행되는지 로컬 확인 (D2)
+- [ ] MVC suspend 컨트롤러의 실행 스레드(Unconfined 시작, IO 스레드에서 재개)를 로컬 확인 (10.1 추론)
 - [ ] HikariCP 기본값(풀 10, `connectionTimeout` 30초) 확인 (3장 "확인 필요")
 
 **실험 설계 확정 (파일럿 후 문서에 기록하고 고정)**
@@ -257,7 +262,11 @@ MariaDB 블로그 실험이 부분 선행이므로, "병목이 이동한다" 자
 - 병렬로 IO 작업을 하는 스레드 수는 시스템 프로퍼티 `kotlinx.coroutines.io.parallelism`로 제한되며 기본값은 **64와 코어 수 중 큰 값**이다. Pi 4코어에서는 64.
 - `Dispatchers.IO.limitedParallelism(n)`으로 얻은 뷰는 **IO의 64 상한에 묶이지 않는다**(탄력성). 스레드는 IO와 공유한다. 즉 `limitedParallelism(128)`이면 128까지 병렬 실행이 가능하다.
 - IO와 그 뷰는 `Dispatchers.Default`와 스레드를 공유한다. 상한은 병렬 실행 작업 수의 상한이지 스레드 수의 엄격한 상한이 아니다.
-- 출처: [Dispatchers.IO API](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/-dispatchers/-i-o.html)
+- `limitedParallelism` 문서도 같은 내용이다. `Dispatchers.IO`는 limited parallelism에서 "elastic"이어서 뷰들의 합이 `Dispatchers.IO`의 용량에 묶이지 않고, `newFixedThreadPoolContext(n)`을 `Dispatchers.IO.limitedParallelism(n)`으로 바꿔도 스레드 수 면에서 안전하다고 적혀 있다. 일반 디스패처에서는 모든 뷰의 실효 병렬도가 원본 디스패처의 실제 병렬도를 넘지 못한다는 점과 대비된다.
+- 뒤쪽 스케줄러의 스레드 수 상한(`kotlinx.coroutines.scheduler.max.pool.size`)의 기본값은 `MAX_SUPPORTED_POOL_SIZE` = 2^21 − 2(약 209만)이다(소스 master 기준, 1.10.2 태그로 고정해 확인하지 않았다). 풀 크기 스윕의 최대 128은 이 상한과 무관하다.
+- 주의: `limitedParallelism`은 코드를 동시에 실행하는 스레드 수를 제한할 뿐, 동시에 존재하는 코루틴 수를 제한하지 않는다(문서의 Pitfall). 이 연구는 블로킹 JDBC를 IO 스레드에서 실행하므로 n이 곧 동시 DB 호출 수의 상한이다.
+- 문서와 소스로 확인했지만 실제 동작(n > 64에서 n개까지 병렬 실행)은 로컬 실행으로 확인하기 전이다.
+- 출처: [Dispatchers.IO API](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/-dispatchers/-i-o.html), [limitedParallelism API](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/-coroutine-dispatcher/limited-parallelism.html), [Tasks.kt](https://github.com/Kotlin/kotlinx.coroutines/blob/master/kotlinx-coroutines-core/jvm/src/scheduling/Tasks.kt), [CoroutineScheduler.kt](https://github.com/Kotlin/kotlinx.coroutines/blob/master/kotlinx-coroutines-core/jvm/src/scheduling/CoroutineScheduler.kt)
 
 **(4) k6 arrival-rate executor와 `dropped_iterations`**
 - `constant-arrival-rate`: `rate`(필수), `timeUnit`(기본 `1s`), `duration`(필수), `preAllocatedVUs`(필수), `maxVUs`(미설정 시 `preAllocatedVUs`와 같음). `ramping-arrival-rate`: `stages`(필수), `preAllocatedVUs`(필수), `startRate`(기본 0), `timeUnit`, `maxVUs`.
@@ -265,13 +274,13 @@ MariaDB 블로그 실험이 부분 선행이므로, "병목이 이동한다" 자
 - k6 문서는 드롭의 원인을 **설정(VU 부족)**과 **SUT 성능 저하(응답이 길어져 VU가 모두 묶임)** 두 가지로 나눈다. 테스트 중반 이후의 드롭은 SUT 쪽일 가능성이 있다고 적는다.
 - 출처: [constant-arrival-rate](https://grafana.com/docs/k6/latest/using-k6/scenarios/executors/constant-arrival-rate/), [ramping-arrival-rate](https://grafana.com/docs/k6/latest/using-k6/scenarios/executors/ramping-arrival-rate/), [Dropped iterations](https://grafana.com/docs/k6/latest/using-k6/scenarios/concepts/dropped-iterations/), [Metrics reference](https://grafana.com/docs/k6/latest/using-k6/metrics/reference/)
 
-**문서 가정과 다른 점 (연구자 결정 대기, 결정 전에는 6장을 바꾸지 않는다)**
-- D1. 6.5와 7장은 `dropped_iterations` > 0을 "부하 생성기 한계"로 해석한다. k6 문서에서는 SUT가 느려져 VU가 모두 응답을 기다리는 경우에도 드롭이 생긴다. 이 연구가 관찰하려는 포화 구간이 바로 그런 경우다. 해석 문구와, `maxVUs`를 얼마나 크게 둘지(예: 도착률 × 요청 타임아웃)를 정해야 한다.
-- D2. 3장과 H3는 `Dispatchers.IO`의 64를 공통 상한으로 가정한다. 실제로는 `limitedParallelism(n)` 뷰가 64를 넘을 수 있다. "IO 병렬도" 변수는 `Dispatchers.IO.limitedParallelism(n)`(n이 상한)으로 두고, "기본값" 수준은 `Dispatchers.IO`(64)로 두는 방안을 제안한다.
-- D3. 코루틴 프로파일은 MVC 비동기 처리를 거치므로 톰캣 스레드가 상한이 아니고 디스패치가 한 번 더 있다. 이것을 처리 모델 차이의 일부로 보고 기록할지 정해야 한다.
-- D4. 6.1은 가상 스레드 설정을 "Boot 3.2+"로 적었다. 현재 stable은 Boot 4.1.1(Spring Framework 7, Tomcat 11)이다. 어느 Boot 라인을 고정할지 정해야 한다.
-- D5. JDK의 "이후 버전 1개"는 JEP 491이 들어간 24 이상이어야 한다. 후보는 JDK 25이다(LTS 여부는 이번에 공식 문서로 확인하지 않았다).
-- D6. HikariCP는 Boot 관리 버전(7.0.2)을 쓸지, 가상 스레드 수정이 들어간 7.1.0으로 올릴지 정해야 한다. 후자는 가상 스레드 결과에 영향을 줄 수 있다.
+**문서 가정과 다른 점과 결정 (2026-10-23 연구자 결정, 반영 위치는 괄호 안)**
+- D1. `dropped_iterations` > 0은 서버 포화로도 생긴다(k6 문서). **결정**: `maxVUs`를 도착률 × 요청 타임아웃 이상으로 잡고, 드롭이 남으면 원인을 단정하지 않고 생성기 CPU와 함께 기록해 구분한다. 6.6의 정의는 바꾸지 않았다. (6.5, 7장)
+- D2. `limitedParallelism(n)` 뷰는 `Dispatchers.IO`의 64 상한에 묶이지 않는다. **결정**: IO 병렬도 변수는 `Dispatchers.IO.limitedParallelism(n)`의 n, "기본값" 수준은 `Dispatchers.IO`(64)로 둔다. 문서와 소스로는 n > 64가 허용됨을 확인했다(10.1 (3)). 실제 병렬 실행은 로컬에서 확인(#1)한 뒤 3장과 H3의 64 가정을 수정한다. (6.1, 6.3)
+- D3. 코루틴 프로파일은 MVC 비동기 처리를 거쳐 톰캣 스레드가 동시성 상한이 아니다. **결정**: 코루틴 모델의 본질로 보고 처리 모델 차이로 인정하며 해석에서 명시한다. (6.1)
+- D4. **결정**: Spring Boot 4.1.1 라인(Spring Framework 7.0.9, Tomcat 11)으로 고정한다. (6.1)
+- D5. **결정**: 두 번째 JDK는 25다. 확인: JDK 25는 2025-09-16에 GA했고 OpenJDK 프로젝트 페이지는 "most vendors"의 LTS라고 적는다. Temurin 25 (LTS)는 최소 2031-09까지 지원이며, 같은 표에서 Java 21 (LTS)은 최소 2029-12까지다. 최신 패치는 확인 시점(2026-10)에 25.0.4.1이므로 실험 빌드에서는 패치 버전까지 고정해 기록한다. 출처: [OpenJDK JDK 25](https://openjdk.org/projects/jdk/25/), [Adoptium Support](https://adoptium.net/support/). Oracle 지원 로드맵 페이지는 403으로 읽지 못했다. (6.3)
+- D6. **결정**: HikariCP는 Boot 관리 버전 7.0.2를 쓴다. 7.1.0은 후속 비교 후보다. (6.1)
 
 **행정과 논문화**
 - [ ] 학교의 AI 활용 표기 규정, 졸업논문 요건 확인
@@ -317,3 +326,5 @@ MariaDB 블로그 실험이 부분 선행이므로, "병목이 이동한다" 자
 - v0.2 (2026-10-22): 부하 모델을 열린 모델 기준으로 변경, 실험 환경을 Pi 1대 + 맥북으로 확정
 - v0.3 (2026-10-22): 종합본으로 재구성. 핵심 개념, 연구 범위, 시스템 구성(Kotlin 단일 프로젝트), 재현성 절을 추가하고 TODO를 분류
 - v0.3.1 (2026-10-23): 기술 확인 4건의 결과와 출처를 10.1절에 추가. 설계와 정의는 바꾸지 않았고, 문서와 다른 점은 D1~D6으로 기록해 결정을 기다린다
+- v0.4 (2026-10-23): D1~D6 결정을 반영. 6.1(Boot 4.1.1, HikariCP 7.0.2, 코루틴 프로파일 정의와 D3 명시), 6.3(JDK 21/25, IO 병렬도 변수), 6.5와 7장(`dropped_iterations` 해석)을 고쳤다. 6.6의 정의와 임계값은 바꾸지 않았다
+- v0.4.1 (2026-10-23): JDK 25의 LTS 여부(D5)와 `limitedParallelism`의 상한 동작(D2)을 웹 검색과 소스로 확인해 10.1절에 기록. 설계는 바꾸지 않았다

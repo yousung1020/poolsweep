@@ -19,8 +19,8 @@ Spring Boot(Kotlin)에서 요청 처리 모델(플랫폼 스레드풀 / 가상 �
 - 기술 확인(#1)과 앱 뼈대(#2)가 끝났다. 앱 빌드와 실행 명령은 `CLAUDE.md` 6장과 `README.md`에 있다.
 - 실험 환경(Pi 4B 1대 + 맥북)은 확정되었고 점검 전이다.
 - 선행연구는 웹 검색 기준 1차가 끝났고 학술 DB 직접 확인이 남았다.
-- 저장소: 이슈 구조 개편과 `docs/WRITING.md`까지 커밋하고 푸시했다(2026-10-25). 미커밋 작업은 없다.
-- 이슈 파일은 `docs/WRITING.md`의 구조를 따르며, 파일 하나만 읽어도 작업 맥락을 알 수 있다.
+- 저장소: 작업 단위 규칙과 이슈별 단위 분할까지 커밋하고 푸시했다(2026-10-25). 미커밋 작업은 없다.
+- 이슈는 작업 단위(`#3-1` 등)로 나뉘어 있고, 한 채팅에서는 단위 하나만 한다. 구조는 `docs/WRITING.md`를 따른다.
 
 다음 결정 지점: **결정 1** (파일럿에서 풀 크기에 따른 의미 있는 패턴이 보이는가). 논문화는 그 뒤에 판단한다.
 
@@ -28,13 +28,13 @@ Spring Boot(Kotlin)에서 요청 처리 모델(플랫폼 스레드풀 / 가상 �
 
 ### 시작 전에 연구자가 준비할 것
 - [ ] Pi 상태 점검: 방열(히트싱크/팬), 정품 전원, 유선 LAN
-### 다음 세션 (#3 로컬 Compose + k6, [issues/03-local-compose-k6.md](issues/03-local-compose-k6.md))
-1. 이슈의 열린 질문 다섯 개(PostgreSQL 태그, temurin 태그, Compose 파일 구성, `maxVUs`와 요청 타임아웃, E2 배정)를 선택지와 추천과 함께 먼저 묻는다.
-2. 로컬 Compose(PostgreSQL + 앱)를 만들고 명령을 `CLAUDE.md` 6장에 기록한다.
-3. k6 E1 최소 스크립트를 만든다.
+### 다음 세션 (#3-1 로컬 PostgreSQL 기동, [issues/03-local-compose-k6.md](issues/03-local-compose-k6.md))
+1. #3-1이 기다리는 Q1(PostgreSQL 태그)과 Q2(Compose 파일 구성)를 선택지와 추천과 함께 먼저 묻는다.
+2. PostgreSQL Compose를 만들고, 시드 1만 행과 세 프로파일의 `/query` 응답을 확인한다.
+3. 기동과 종료 명령을 `CLAUDE.md` 6장과 `README.md`에 기록하고, 커밋을 제안한 뒤 멈춘다. 한 채팅에서는 단위 하나만 한다(`CLAUDE.md` 10장).
 ### 새 채팅에서 입력할 프롬프트
 ```
-STATUS.md와 issues/03-local-compose-k6.md를 읽고 다음 세션 작업을 진행해줘.
+STATUS.md와 issues/03-local-compose-k6.md를 읽고 #3-1을 진행해줘.
 ```
 
 ## 열린 항목

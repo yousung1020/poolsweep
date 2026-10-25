@@ -22,9 +22,6 @@
 - Spring Boot 4.1.1, HikariCP는 Boot 관리 버전(7.0.2), DB 접근은 `JdbcTemplate`이다. (`RESEARCH.md` 6.1, D4, D6)
 - 코루틴 프로파일은 `withContext`로 JDBC를 IO 디스패처에서 호출하고, 가상 스레드 설정을 끈다. (`RESEARCH.md` 6.1, 10.1 (1))
 - IO 병렬도는 `default`(`Dispatchers.IO`)와 `limitedParallelism(n)`이다. (`RESEARCH.md` 6.3, D2)
-- 쿼리 유형과 id는 요청 파라미터로 받고, 스키마와 시드는 `infra/db/init.sql`이 만든다. (`RESEARCH.md` 6.1, 2026-10-23 연구자 결정)
-- `/ping`은 세 프로파일 공통의 일반 핸들러로 둔다. (2026-10-25 연구자 결정, `RESEARCH.md` 6.1)
-- 설정 파일은 YAML로 쓴다. (2026-10-25)
 
 ### 지켜야 할 규칙
 - 공통 코드(레포지토리, 쿼리)는 세 프로파일이 똑같이 쓴다. (`CLAUDE.md` 2장)
@@ -42,7 +39,19 @@
 
 없음
 
-## 체크리스트
+## 결정 기록
+
+- 2026-10-23 새 의존성 → 테스트 의존성을 포함한 목록 전체(코루틴 2종, Actuator, Prometheus 레지스트리, JDBC, PostgreSQL 드라이버, Jackson Kotlin 모듈, 테스트 스타터)를 승인했다. 기록 위치: `app/build.gradle.kts`, `README.md`
+- 2026-10-23 쿼리 유형의 전달 방식 → 환경변수가 아니라 요청 파라미터(`type`)로 받는다. 한 번 기동한 앱으로 세 유형을 모두 잴 수 있기 때문이다. 기록 위치: `RESEARCH.md` 6.1, 13장
+- 2026-10-23 id의 출처 → k6가 시드 범위에서 골라 파라미터로 보낸다. 앱이 받은 값으로만 동작해 세 프로파일에서 같고, k6 시드로 요청 순서까지 재현할 수 있기 때문이다. 기록 위치: `RESEARCH.md` 6.1
+- 2026-10-23 스키마와 시드 → `item(id bigint PK, payload text)`에 100바이트 payload 1만 행을 `infra/db/init.sql`로 만든다. 데이터를 DB 메모리에 모두 올리기 위해서다. 기록 위치: `RESEARCH.md` 6.1
+- 2026-10-23 지연 쿼리의 형태 → PK 조회에 `pg_sleep`을 FROM 절로 더한다. 세 유형이 같은 조회를 하고 DB 점유 시간만 다르게 하려는 것이다. 기록 위치: `RESEARCH.md` 6.1
+- 2026-10-25 `/ping`의 위치 → 세 프로파일 공통의 일반 핸들러로 둔다. 기준선에 코루틴 모델의 비동기 디스패치 비용이 섞이지 않게 하려는 것이다. 기록 위치: `RESEARCH.md` 6.1
+- 2026-10-25 설정 파일 형식 → YAML로 쓴다. 계층이 깊은 풀 설정과 스레드 설정이 한곳에 모여 리뷰하기 쉽기 때문이다. 공개 저장소의 사용 비율은 `.properties`가 약 2배였지만 판단 근거로 쓰지 않았다. 기록 위치: 이 이슈
+
+## 작업 단위
+
+이 이슈는 작업 단위 규칙(2026-10-25)이 생기기 전에 끝나서 단위로 나누지 않았다. 당시의 체크리스트를 그대로 둔다.
 
 - [x] 새 의존성 목록(코루틴 2종, Actuator, Prometheus 레지스트리, JDBC, PostgreSQL 드라이버)을 먼저 보여 주고 승인받는다
 - [x] `app/`에 Spring Boot 4.1.1 + Kotlin + Gradle Kotlin DSL(wrapper) 단일 프로젝트를 만든다

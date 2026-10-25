@@ -39,19 +39,53 @@
 
 ## 열린 질문
 
-- Pi OS에서 cgroup cpuset이 켜져 있어 `cpuset`이 실제로 적용되는지 어떻게 확인할까? `RESEARCH.md` 6.2는 Compose `cpuset`과 `taskset`을 후보로 둔다.
-- 앱을 Pi에 어떻게 올릴까? 맥북에서 arm64 이미지를 빌드해 옮기는 방법과 Pi에서 직접 빌드하는 방법이 있다.
-- 온도와 스로틀링을 실행 전후에만 기록할까, 실행 중에도 주기적으로 기록할까?
-- 컨테이너 메모리 제한의 초깃값을 얼마로 할까? 최종값은 파일럿(#6)에서 정한다.
+- Q1. 앱을 Pi에 어떻게 올릴까? 맥북에서 arm64 이미지를 빌드해 옮기는 방법과 Pi에서 직접 빌드하는 방법이 있다. 기다리는 단위: #4-1
+- Q2. 컨테이너 메모리 제한의 초깃값을 얼마로 할까? 최종값은 파일럿(#6)에서 정한다. 기다리는 단위: #4-1
+- Q3. Pi OS에서 `cpuset`이 실제로 적용되는지 어떻게 확인할까? `RESEARCH.md` 6.2는 Compose `cpuset`과 `taskset`을 후보로 둔다. 기다리는 단위: #4-2
+- Q4. 온도와 스로틀링을 실행 전후에만 기록할까, 실행 중에도 주기적으로 기록할까? 기다리는 단위: #4-4
 
-## 체크리스트
+## 결정 기록
 
-- [ ] Pi용 Compose: 앱 코어 0-1, PostgreSQL 코어 2-3 (`cpuset`), arm64 이미지, 메모리 제한
-- [ ] Pi OS에서 cgroup cpuset이 켜져 있어 `cpuset`이 실제로 적용되는지 확인한다 (#1에서 넘어옴)
-- [ ] 맥북용 Compose: Prometheus + Grafana, Pi 원격 스크랩
-- [ ] 온도와 스로틀링(`vcgencmd get_throttled`) 기록 방법을 정한다
-- [ ] Pi 배포와 실행 명령을 `CLAUDE.md` 6장과 `README.md`에 기록한다
-- [ ] Pi에서 명령을 실행하기 전에 연구자에게 알린다 (`CLAUDE.md` 6장)
+없음
+
+## 작업 단위
+
+### #4-1 Pi에 앱과 PostgreSQL 배포
+- 상태: 대기
+- 동작: 기록된 배포 명령을 실행하면 Pi에서 앱과 PostgreSQL이 뜨고, 맥북에서 LAN으로 보낸 `/query`가 200을 반환한다.
+- 확인 방법: 맥북에서 세 프로파일의 `/query`, `/ping`, `/actuator/info`가 응답하고, `/actuator/info`의 `availableProcessors`와 JDK가 기대값과 같다.
+- 필요한 결정: Q1, Q2
+- 할 일:
+  - [ ] Pi에서 명령을 실행하기 전에 연구자에게 알린다 (`CLAUDE.md` 6장)
+  - [ ] arm64 이미지와 메모리 제한을 넣은 Pi용 Compose를 만든다
+  - [ ] 배포, 기동, 종료 명령을 `CLAUDE.md` 6장과 `README.md`에 기록한다
+
+### #4-2 코어 분리
+- 상태: 대기
+- 동작: Pi용 Compose로 기동하면 앱 프로세스는 코어 0-1에서만, PostgreSQL 프로세스는 코어 2-3에서만 실행된다.
+- 확인 방법: Q3에서 정한 방법으로 각 프로세스에 허용된 CPU 목록을 확인하고, 부하를 걸었을 때 코어별 사용률이 그 구분과 맞는다.
+- 필요한 결정: Q3
+- 할 일:
+  - [ ] Pi용 Compose에 `cpuset`을 넣는다 (#1에서 넘어옴)
+  - [ ] 확인 명령과 결과를 핸드오프에 남긴다
+
+### #4-3 맥북 Prometheus와 Grafana
+- 상태: 대기
+- 동작: 기록된 맥북용 Compose 명령으로 기동하면 Prometheus가 Pi 앱의 `/actuator/prometheus`를 수집하고, Grafana에서 `hikaricp_connections_*` 지표를 볼 수 있다.
+- 확인 방법: Prometheus의 타깃 상태가 정상이고, 부하 중에 `hikaricp_connections_active`가 바뀐다.
+- 필요한 결정: 없음
+- 할 일:
+  - [ ] 이미지 태그를 고정한 맥북용 Compose와 수집 설정을 만든다
+  - [ ] 명령을 `CLAUDE.md` 6장과 `README.md`에 기록한다
+
+### #4-4 온도와 스로틀링 기록
+- 상태: 대기
+- 동작: 기록 명령을 실행하면 Pi의 온도와 `vcgencmd get_throttled` 값이 시각과 함께 파일로 남는다.
+- 확인 방법: 출력 파일에 시각, 온도, 스로틀링 값이 있고, 실행 스크립트(#5)가 읽을 수 있는 형식이다.
+- 필요한 결정: Q4
+- 할 일:
+  - [ ] Pi에서 명령을 실행하기 전에 연구자에게 알린다
+  - [ ] 기록 방법을 만들고 `CLAUDE.md` 6장과 `README.md`에 기록한다
 
 ## 결과
 

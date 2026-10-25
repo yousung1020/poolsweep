@@ -1,1 +1,5 @@
 .idea/
+# Gradle/Kotlin 빌드 산출물
+.gradle/
+build/
+.kotlin/

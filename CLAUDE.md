@@ -48,6 +48,11 @@
 
 - 빌드 도구, 테스트 명령, 외부 인프라를 시작하는 명령은 첫 구현 세션에서 확인한 뒤 이 절에 기록한다. 기록되기 전에는 명령을 추측해서 실행하지 않는다.
 - 이 절에 기록할 항목은 앱 빌드 명령, 테스트 실행 명령, 맥북에서 로컬 인프라(PostgreSQL 등)를 시작하고 종료하는 명령, Pi에 배포하고 실행하는 명령, 부하 스크립트를 실행하는 명령이다.
+- 앱 (2026-10-23 확인, 작업 디렉터리 `app/`)
+  - 빌드와 테스트: `./gradlew test bootJar`. 테스트는 DB 없이 돈다. 결과 jar는 `app/build/libs/poolsweep-app-0.0.1-SNAPSHOT.jar`이다.
+  - 실행: `SPRING_PROFILES_ACTIVE=<platform|virtual|coroutine> POOL_SIZE=<n> DB_URL=<jdbc url> DB_USER=<user> DB_PASSWORD=<pw> java -jar build/libs/poolsweep-app-0.0.1-SNAPSHOT.jar`. 코루틴 프로파일은 `IO_PARALLELISM=<default|n>`을 더한다.
+  - 확인: `/ping`, `/query?type=pk&id=1`, `/actuator/info`(실제 적용 설정), `/actuator/prometheus`(풀 지표)
+- 로컬 인프라, Pi 배포, 부하 스크립트 명령은 아직 기록되지 않았다(#3, #4).
 - Pi나 다른 원격 호스트에서 명령을 실행해야 할 때는 실행하기 전에 사용자에게 알린다. 이 호스트들은 측정 환경이어서 의도하지 않은 변경이 실험 결과에 영향을 줄 수 있기 때문이다.
 ## 7. 커밋 규칙
 

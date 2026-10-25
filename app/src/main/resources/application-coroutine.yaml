@@ -1,0 +1,9 @@
+spring:
+  threads:
+    virtual:
+      # 가상 스레드를 켜면 톰캣 쪽만 가상 스레드가 되고 IO 작업은 플랫폼 스레드에 남아 두 모델이 섞인다(RESEARCH.md 10.1 (1)).
+      enabled: false
+
+poolsweep:
+  # "default"는 Dispatchers.IO(상한 64), 정수 n은 Dispatchers.IO.limitedParallelism(n)이다(RESEARCH.md 6.1, D2).
+  io-parallelism: "${IO_PARALLELISM:default}"

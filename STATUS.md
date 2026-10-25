@@ -12,30 +12,29 @@ Spring Boot(Kotlin)에서 요청 처리 모델(플랫폼 스레드풀 / 가상 �
 
 ## 지금 단계
 
-**#1(기술 확인) 완료, #2(앱 뼈대) 시작 전. 저장소에 코드는 아직 없다.**
+**#2(앱 뼈대) 완료, #3(로컬 Compose + k6) 시작 전.**
 
-- 연구 주제, RQ, 가설은 확정되었다(`RESEARCH.md` v0.4.2).
+- 연구 주제, RQ, 가설은 확정되었다(`RESEARCH.md` v0.5).
 - 실험 설계는 초안이 확정되었고, 임계값은 파일럿 후 고정한다.
-- 기술 확인은 문서 확인, D1~D6 결정, 로컬 확인 2건까지 끝났다(`RESEARCH.md` 10.1). Pi에서의 코어 고정 확인은 #4로 넘겼다.
-- 빌드 도구는 Gradle Kotlin DSL + wrapper로 정했다(`RESEARCH.md` 7장).
+- 기술 확인(#1)과 앱 뼈대(#2)가 끝났다. 앱 빌드와 실행 명령은 `CLAUDE.md` 6장과 `README.md`에 있다.
 - 실험 환경(Pi 4B 1대 + 맥북)은 확정되었고 점검 전이다.
 - 선행연구는 웹 검색 기준 1차가 끝났고 학술 DB 직접 확인이 남았다.
-- 저장소: 최신 커밋은 `2a3a31b`(푸시 전)이다. 이슈는 GitHub에서 `issues/` 문서로 옮겼고(GitHub 이슈는 삭제), 이전분은 미커밋이다.
+- 저장소: 최신 커밋은 `d637928`(푸시 전)이다. #2 작업분은 미커밋이다.
 
 다음 결정 지점: **결정 1** (파일럿에서 풀 크기에 따른 의미 있는 패턴이 보이는가). 논문화는 그 뒤에 판단한다.
 
 ## 바로 다음 채팅에서 할 일
 
 ### 시작 전에 연구자가 준비할 것
-- [ ] 이슈 문서 이전분(`issues/`, `STATUS.md`, `CLAUDE.md`) 커밋과 푸시
+- [ ] #2 작업분 커밋과 푸시
 - [ ] Pi 상태 점검: 방열(히트싱크/팬), 정품 전원, 유선 LAN
-### 다음 세션 (#2 앱 뼈대, [issues/02-app-skeleton.md](issues/02-app-skeleton.md))
-1. `app/`에 Boot 4.1.1 + Kotlin + Gradle Kotlin DSL 프로젝트를 만든다. 새 의존성(코루틴 2종, Actuator, Prometheus 레지스트리, JDBC, PostgreSQL 드라이버)은 목록을 먼저 보여 주고 승인받는다.
-2. 세 프로파일과 `/query`, `/ping`을 구현한다. 코루틴 프로파일은 가상 스레드 설정을 끈다(10.1 (1)).
-3. 빌드, 실행 명령을 확인해 `CLAUDE.md` 6장에 기록한다.
+### 다음 세션 (#3 로컬 Compose + k6, [issues/03-local-compose-k6.md](issues/03-local-compose-k6.md))
+1. PostgreSQL 메이저 버전과 이미지 태그를 정한다(선택지와 추천을 먼저 제시).
+2. 로컬 Compose(PostgreSQL + 앱)를 만들고 명령을 `CLAUDE.md` 6장에 기록한다.
+3. k6 E1 최소 스크립트를 만든다. `maxVUs`와 요청 타임아웃은 선택지를 먼저 제시한다.
 ### 새 채팅에서 입력할 프롬프트
 ```
-STATUS.md와 issues/02-app-skeleton.md를 읽고 다음 세션 작업을 진행해줘.
+STATUS.md와 issues/03-local-compose-k6.md를 읽고 다음 세션 작업을 진행해줘.
 ```
 
 ## 열린 항목

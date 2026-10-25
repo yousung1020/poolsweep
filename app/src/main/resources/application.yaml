@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: poolsweep-app
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    hikari:
+      # 실험 변수(RESEARCH.md 6.3). 기본값을 두지 않아서 실행 스크립트가 값을 빠뜨리면 기동이 실패한다.
+      # 풀 크기 외의 HikariCP 값은 기본값으로 고정한다(CLAUDE.md 2장, RESEARCH.md 10.1 (5)).
+      maximum-pool-size: ${POOL_SIZE}
+
+# 톰캣 스레드 수 등 서버 설정은 기본값으로 고정하고 /actuator/info로 기록한다.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus

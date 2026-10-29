@@ -3,7 +3,7 @@
 - 상태: 진행 중
 - 선행: #2 (완료)
 - 후행: #4, #5
-- 최종 갱신: 2026-10-28
+- 최종 갱신: 2026-10-29
 - 출처: 2026-10-23에 GitHub 이슈 #3에서 이 파일로 옮겼다. 원본 이슈는 삭제했다.
 
 ## 목표
@@ -43,7 +43,9 @@
 - [app/src/main/resources/application.yaml](../app/src/main/resources/application.yaml): 앱이 받는 환경변수가 정의되어 있다.
 - [README.md](../README.md): 앱 빌드와 실행 방법이 있다. 이번에 인프라와 부하 실행 절을 더한다.
 - 앱 빌드와 실행 명령은 `CLAUDE.md` 6장의 "앱" 항목이다.
-- 로컬 Compose 파일(`infra/` 아래)과 k6 E1 스크립트(`load/` 아래)는 만들 예정이다.
+- [infra/compose.yaml](../infra/compose.yaml): 맥북과 Pi가 함께 쓰는 기본 Compose 파일이다. 지금은 `db` 서비스만 있고, #3-2에서 앱 서비스를 더한다.
+- 로컬 PostgreSQL 기동, 확인, 종료 명령은 `CLAUDE.md` 6장의 "로컬 PostgreSQL" 항목이다.
+- k6 E1 스크립트(`load/` 아래)는 만들 예정이다.
 
 ## 열린 질문
 
@@ -59,13 +61,13 @@
 ## 작업 단위
 
 ### #3-1 로컬 PostgreSQL 기동
-- 상태: 진행 중
+- 상태: 완료 (2026-10-29)
 - 동작: 기록된 Compose 명령으로 기동하면 PostgreSQL이 `item` 1만 행을 가진 채 뜨고, 맥북에서 jar로 실행한 앱의 `/query?type=pk&id=1`이 200을 반환한다.
 - 확인 방법: `SELECT count(*) FROM item`이 10000이다. 세 프로파일 각각에서 `/query`가 200, 없는 id가 404이다. 종료 명령 후 컨테이너가 남지 않는다.
 - 필요한 결정: Q1, Q2 (2026-10-28 결정됨)
 - 할 일:
-  - [ ] PostgreSQL 이미지 태그를 고정한 Compose 파일을 만들고 `init.sql`을 마운트한다
-  - [ ] 기동과 종료 명령을 `CLAUDE.md` 6장과 `README.md`에 기록한다
+  - [x] PostgreSQL 이미지 태그를 고정한 Compose 파일을 만들고 `init.sql`을 마운트한다
+  - [x] 기동과 종료 명령을 `CLAUDE.md` 6장과 `README.md`에 기록한다
 
 ### #3-2 앱 컨테이너
 - 상태: 대기
@@ -109,3 +111,14 @@
 - 남은 일: #3-1의 할 일 전부(Compose 파일 작성, 시드와 `/query` 확인, 명령 기록)
 - 막힌 점 / 확인 필요: `postgres:18.6-bookworm` 이미지를 맥북에 받았고, `RepoDigests`가 위 digest와 같으며 아키텍처가 arm64인 것을 확인했다. 이 채팅은 길어서 연구자 결정으로 #3-1 구현을 새 채팅으로 넘겼다.
 - 다음 세션 첫 작업: `infra/compose.yaml` 작성
+
+### 핸드오프 (2026-10-29, #3-1)
+- 한 일: [infra/compose.yaml](../infra/compose.yaml)을 만들었다.
+  - 역할과 기능: `db` 서비스 하나를 정의한다. 이미지는 태그와 digest로 고정하고, `init.sql`을 읽기 전용으로 마운트하며, 계정은 `poolsweep`/`poolsweep`이고, 5432 포트를 연다. healthcheck(`pg_isready`)로 `up --wait`가 시드 적재 뒤에 돌아오게 한다. PostgreSQL 설정은 넘기지 않으며, 앱 서비스와 Pi용 `cpuset`, 메모리 제한은 아직 없다.
+  - 쓰이는 곳: 지금은 맥북에서 jar로 실행한 앱이 접속한다. 앞으로 #3-2의 앱 서비스와 #4의 `compose.pi.yaml`이 이 파일을 쓴다.
+  - 없으면 안 되는 이유: 이 파일이 없으면 DB를 손으로 띄워야 해서, 예를 들어 Pi와 맥북에서 이미지 digest나 시드 적재 방식이 달라져도 알아차릴 수 없다.
+  - 전/후 비교: 전에는 `infra/`에 `db/init.sql`만 있었다. 후에는 고정 이미지와 시드 마운트를 가진 Compose 파일이 있다.
+- 확인 결과 (로컬 맥북, 커밋 `376fbec` 기준 작업 트리): `up -d --wait` 후 `SELECT count(*) FROM item`이 10000이고, 서버 버전은 `PostgreSQL 18.6 ... aarch64`이다. jar로 실행한 앱(풀 5)에서 세 프로파일 모두 `/query?type=pk&id=1`과 `type=sleep10&id=2`가 200, `id=99999`가 404였고, `/actuator/info`의 `processingModel`과 `virtualThreadsEnabled`가 프로파일과 맞았다. `down -v` 후 `poolsweep` 프로젝트의 컨테이너와 볼륨이 남지 않았다.
+- 남은 일: #3-2(앱 컨테이너), #3-3, #3-4
+- 막힌 점 / 확인 필요: DB 계정 이름과 암호를 `poolsweep`으로 정했다. LAN 전용 실험 계정이라 별도 결정 없이 정했으며, 바꾸려면 Compose, `CLAUDE.md` 6장, `README.md`를 함께 고친다. #3-2는 Q3(eclipse-temurin 21, 25 JRE 태그와 digest)의 결정이 먼저 필요하다.
+- 다음 세션 첫 작업: Q3를 위해 eclipse-temurin 21, 25 JRE 태그와 다중 아키텍처 digest를 확인해 연구자에게 결정을 받는다.

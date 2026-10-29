@@ -53,7 +53,11 @@
   - 빌드와 테스트: `./gradlew test bootJar`. 테스트는 DB 없이 돈다. 결과 jar는 `app/build/libs/poolsweep-app-0.0.1-SNAPSHOT.jar`이다.
   - 실행: `SPRING_PROFILES_ACTIVE=<platform|virtual|coroutine> POOL_SIZE=<n> DB_URL=<jdbc url> DB_USER=<user> DB_PASSWORD=<pw> java -jar build/libs/poolsweep-app-0.0.1-SNAPSHOT.jar`. 코루틴 프로파일은 `IO_PARALLELISM=<default|n>`을 더한다.
   - 확인: `/ping`, `/query?type=pk&id=1`, `/actuator/info`(실제 적용 설정), `/actuator/prometheus`(풀 지표)
-- 로컬 인프라, Pi 배포, 부하 스크립트 명령은 아직 기록되지 않았다(#3, #4).
+- 로컬 PostgreSQL (2026-10-29 확인, 작업 디렉터리 저장소 루트, Docker 29.9.2, Compose v5.6.1)
+  - 기동: `docker compose -f infra/compose.yaml up -d --wait`. 시드 적재가 끝나 healthcheck가 통과하면 돌아온다. 접속 정보는 `jdbc:postgresql://localhost:5432/poolsweep`, 계정과 암호는 `poolsweep`이다.
+  - 확인: `docker compose -f infra/compose.yaml exec -T db psql -U poolsweep -d poolsweep -tAc "SELECT count(*) FROM item"`가 10000이다.
+  - 종료: `docker compose -f infra/compose.yaml down -v`. `-v`는 데이터 볼륨까지 지워서 다음 기동 때 `init.sql`이 다시 실행되게 한다.
+- 앱 컨테이너, Pi 배포, 부하 스크립트 명령은 아직 기록되지 않았다(#3, #4).
 - Pi나 다른 원격 호스트에서 명령을 실행해야 할 때는 실행하기 전에 사용자에게 알린다. 이 호스트들은 측정 환경이어서 의도하지 않은 변경이 실험 결과에 영향을 줄 수 있기 때문이다.
 ## 7. 커밋 규칙
 

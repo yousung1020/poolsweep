@@ -1,0 +1,25 @@
+# 맥북과 Pi가 함께 쓰는 기본 Compose 파일이다. Pi에서는 compose.pi.yaml이 cpuset과 메모리 제한만 덮어쓴다(#4).
+# DB 정의를 한 곳에 두어 로컬에서 확인한 설정이 Pi에서도 그대로 쓰이게 한다.
+name: poolsweep
+
+services:
+  db:
+    # 태그는 다시 빌드되므로 다중 아키텍처 digest까지 고정한다(RESEARCH.md 6.1).
+    image: postgres:18.6-bookworm@sha256:5c4783a8cc3f0074912164f94dfa1be4e043438f0f707cf968d7af9a0d31a2c8
+    # PostgreSQL 설정은 이미지 기본값을 그대로 쓴다(CLAUDE.md 2장). command로 설정을 넘기지 않는다.
+    environment:
+      # LAN 안에서만 쓰는 실험용 계정이다(RESEARCH.md 5장).
+      POSTGRES_DB: poolsweep
+      POSTGRES_USER: poolsweep
+      POSTGRES_PASSWORD: poolsweep
+    ports:
+      - "5432:5432"
+    volumes:
+      # 데이터 디렉터리가 비어 있을 때만 실행된다. 시드를 다시 만들려면 down -v로 볼륨까지 지운다.
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      # up --wait가 시드 적재가 끝난 뒤에 돌아오게 한다. 초기화 중의 임시 서버는 소켓만 열어서 -h로 TCP를 확인한다.
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "poolsweep", "-d", "poolsweep"]
+      interval: 2s
+      timeout: 3s
+      retries: 30

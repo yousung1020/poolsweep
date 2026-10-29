@@ -23,3 +23,25 @@ services:
       interval: 2s
       timeout: 3s
       retries: 30
+
+  app:
+    build:
+      context: ../app
+      args:
+        # 값 없이 이름만 쓰면 셸에 있을 때만 전달된다. 빠뜨리면 Dockerfile의 FROM이 실패한다.
+        - JDK
+    environment:
+      # 실험 변수는 셸에서 받는다. 값 없이 이름만 쓰면 셸에 없을 때 컨테이너에도 설정되지 않아,
+      # 앱이 기동 단계에서 실패한다. 빈 문자열이 들어가 기본값으로 뜨는 일을 막으려는 것이다.
+      - SPRING_PROFILES_ACTIVE
+      - POOL_SIZE
+      - IO_PARALLELISM
+      # 접속 정보는 실험 변수가 아니므로 고정한다.
+      - DB_URL=jdbc:postgresql://db:5432/poolsweep
+      - DB_USER=poolsweep
+      - DB_PASSWORD=poolsweep
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy

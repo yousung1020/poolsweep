@@ -1,7 +1,7 @@
 # RESEARCH.md: 요청 처리 모델과 HikariCP 풀 크기
 
 > 이 파일은 연구의 단일 기준 문서입니다. 새 세션(Claude Code 포함)은 이 파일을 가장 먼저 읽고 시작합니다.
-> 상태: 기획 단계 (파일럿 전). 최종 수정: 2026-10-23 (v0.5).
+> 상태: 기획 단계 (파일럿 전). 최종 수정: 2026-10-29 (v0.7).
 > 논문화 여부는 파일럿 이후 결정합니다. 어느 쪽이든 코드, 데이터, 실험 노트는 공개 저장소로 남깁니다.
 > "확인 필요"로 표시된 항목은 제가 아는 범위에서 정리한 것이므로 공식 문서나 원문으로 확인한 뒤 이 문서에 기록합니다.
 
@@ -80,6 +80,7 @@ Spring Boot(Kotlin)에서 요청 처리 모델(플랫폼 스레드풀 / 가상 �
   - id는 k6가 시드 범위(1~10000)에서 골라 파라미터로 보낸다. 앱은 받은 값으로만 동작해 세 프로파일에서 같고, k6 시드를 고정하면 요청 순서까지 재현할 수 있다.
 - **계측**: Actuator + Micrometer(Prometheus)로 풀 지표를 노출한다.
 - **DB**: PostgreSQL 18.6. 이미지는 `postgres:18.6-bookworm@sha256:5c4783a8cc3f0074912164f94dfa1be4e043438f0f707cf968d7af9a0d31a2c8`로 태그와 digest를 함께 고정한다(2026-10-28 연구자 결정). 같은 태그도 기반 이미지 갱신으로 다시 빌드되기 때문이다(이 태그는 2026-10-28에 다시 빌드되었다). PostgreSQL 설정은 이미지 기본값을 그대로 쓴다. `item(id bigint PK, payload text)`에 100바이트 payload 1만 행(약 1.6MB)을 둔다. 스키마와 시드는 DB 컨테이너의 초기화 스크립트(`infra/db/init.sql`)가 만들고, 앱은 기동 중에 스키마를 만들지 않는다.
+- **앱 이미지** (2026-10-29 연구자 결정): 호스트에서 `./gradlew test bootJar`로 만든 jar를 JRE 이미지에 복사한다. 테스트를 거친 jar를 그대로 쓰기 위해서다. JRE는 `eclipse-temurin:21.0.12.1_1-jre-noble@sha256:cd35bb33859641c5374415826a5951845104093eaa401cbe9d3d9023444f1c13`과 `eclipse-temurin:25.0.4.1_1-jre-noble@sha256:ce8543ddd3070ccbeaac2106a74c9387ddeb8d47a1c43348345715c1ef245c7f`로 고정한다. 태그에 패치 버전이 드러나고, 두 JDK가 같은 OS(Ubuntu 24.04)를 써서 OS가 JDK 비교의 변수가 되지 않는다. JVM 옵션은 넣지 않는다.
 
 ### 6.2 실험 환경 (하드웨어)
 
@@ -285,7 +286,7 @@ MariaDB 블로그 실험이 부분 선행이므로, "병목이 이동한다" 자
 
 **(6) 코어 분리와 arm64 이미지 (문서 확인까지)**
 - Compose의 `cpuset`은 실행을 허용할 CPU를 범위(`0-3`) 또는 목록(`0,1`)으로 지정한다. `cpus`(소수 CPU 수)와 `mem_limit`도 있고, 설정하면 Deploy Specification의 값과 일치해야 한다. ([Compose services](https://docs.docker.com/reference/compose-file/services/))
-- 공식 `postgres` 이미지와 `eclipse-temurin` 이미지는 모두 `arm64v8`을 제공한다. postgres는 확인 시점에 18.6과 17.11이 최신 패치였다(예: `18.6-bookworm`). eclipse-temurin의 21, 25 JRE 정확한 태그는 Docker Hub 페이지에서 확인하지 못했다. ([postgres](https://hub.docker.com/_/postgres), [eclipse-temurin](https://hub.docker.com/_/eclipse-temurin))
+- 공식 `postgres` 이미지와 `eclipse-temurin` 이미지는 모두 `arm64v8`을 제공한다. postgres는 확인 시점에 18.6과 17.11이 최신 패치였다(예: `18.6-bookworm`). eclipse-temurin은 2026-10-29에 `docker buildx imagetools inspect`로 `21.0.12.1_1-jre-noble`과 `25.0.4.1_1-jre-noble`이 `linux/arm64/v8`을 포함하고 2026-10-26에 빌드된 것을 확인했다(6.1). ([postgres](https://hub.docker.com/_/postgres), [eclipse-temurin](https://hub.docker.com/_/eclipse-temurin))
 - 확인하지 못한 것: Pi OS에서 cgroup cpuset이 켜져 있어 `cpuset`이 실제로 적용되는지. 이는 #4에서 정한다. PostgreSQL 버전은 2026-10-28에 18.6으로 정했다(6.1).
 
 **문서 가정과 다른 점과 결정 (2026-10-23 연구자 결정, 반영 위치는 괄호 안)**
@@ -345,3 +346,4 @@ MariaDB 블로그 실험이 부분 선행이므로, "병목이 이동한다" 자
 - v0.4.2 (2026-10-23): 로컬 확인 2건(MVC suspend의 실행 스레드, `limitedParallelism(n)`의 n > 64 동작) 결과를 10.1절에 기록하고 2장과 H3의 상한 표현을 고쳤다. 코루틴 프로파일은 가상 스레드 설정을 끄고 실행해야 한다는 점을 기록했다. 빌드 도구(Gradle Kotlin DSL)를 7장에 추가했다. HikariCP 기본값과 코어 분리/arm64 이미지의 문서 확인 결과를 (5), (6)에 추가했다
 - v0.5 (2026-10-23): #2 앱 뼈대의 결정을 6.1에 기록. 쿼리 유형은 요청 파라미터로 받고(13장 문구를 6.1에 맞춤), 지연 쿼리는 PK 조회에 `pg_sleep`을 더한 형태, id는 k6가 전달, 스키마와 시드는 `infra/db/init.sql`의 1만 행으로 정했다
 - v0.6 (2026-10-28): PostgreSQL 버전과 이미지 고정 방식(18.6, 태그와 digest)을 6.1에 기록
+- v0.7 (2026-10-29): 앱 이미지 빌드 방식(호스트 jar 복사)과 JRE 이미지(Temurin 21.0.12.1, 25.0.4.1 noble, 태그와 digest)를 6.1에 기록하고 10.1 (6)의 확인 결과를 갱신

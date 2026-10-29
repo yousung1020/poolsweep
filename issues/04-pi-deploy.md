@@ -3,7 +3,7 @@
 - 상태: 대기
 - 선행: #3 (대기), 연구자의 Pi 방열, 전원, 유선 LAN 점검
 - 후행: #5
-- 최종 갱신: 2026-10-25
+- 최종 갱신: 2026-10-29
 - 출처: 2026-10-23에 GitHub 이슈 #4에서 이 파일로 옮겼다. 원본 이슈는 삭제했다.
 
 ## 목표
@@ -23,7 +23,7 @@
 - 환경은 Pi 4B 4GB(앱 + PostgreSQL) 1대와 MacBook Air M1(k6, Prometheus, Grafana)이며 추가 구매는 하지 않는다. (`RESEARCH.md` 6.2, 7장)
 - 앱은 코어 0-1, PostgreSQL은 코어 2-3에 고정한다. (`RESEARCH.md` 6.2)
 - Compose의 `cpuset`은 `0-1` 같은 범위나 `0,1` 같은 목록으로 쓴다. `mem_limit`도 있다. (`RESEARCH.md` 10.1 (6))
-- PostgreSQL과 eclipse-temurin 공식 이미지는 arm64를 제공한다. 이미지 태그는 #3에서 정한다. (`RESEARCH.md` 10.1 (6))
+- PostgreSQL과 eclipse-temurin 이미지는 #3에서 태그와 digest로 고정했고 모두 arm64를 포함한다. 앱 이미지는 호스트에서 만든 jar를 복사해 빌드한다(`app/Dockerfile`). (`RESEARCH.md` 6.1, 10.1 (6))
 - 메모리(4GB)는 JVM 힙, PostgreSQL, OS 여유로 나누며 값은 파일럿(#6)에서 확정한다. (`RESEARCH.md` 6.2)
 - 스로틀링(`vcgencmd get_throttled`)과 온도를 실행마다 기록하고, 스로틀링이 생긴 실행은 무효 후보로 표시한다. (`RESEARCH.md` 6.2)
 - 앱은 LAN 안에서만 접근하고 인터넷에 노출하지 않는다(포트포워딩 금지). (`RESEARCH.md` 5장)

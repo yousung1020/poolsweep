@@ -43,25 +43,27 @@
 - [app/src/main/resources/application.yaml](../app/src/main/resources/application.yaml): 앱이 받는 환경변수가 정의되어 있다.
 - [README.md](../README.md): 앱 빌드와 실행 방법이 있다. 이번에 인프라와 부하 실행 절을 더한다.
 - 앱 빌드와 실행 명령은 `CLAUDE.md` 6장의 "앱" 항목이다.
-- [infra/compose.yaml](../infra/compose.yaml): 맥북과 Pi가 함께 쓰는 기본 Compose 파일이다. 지금은 `db` 서비스만 있고, #3-2에서 앱 서비스를 더한다.
-- 로컬 PostgreSQL 기동, 확인, 종료 명령은 `CLAUDE.md` 6장의 "로컬 PostgreSQL" 항목이다.
+- [infra/compose.yaml](../infra/compose.yaml): 맥북과 Pi가 함께 쓰는 기본 Compose 파일이다. `db`와 `app` 서비스가 있다.
+- [app/Dockerfile](../app/Dockerfile): 호스트에서 만든 jar를 고정된 JRE 이미지에 복사한다. JDK는 빌드 인자 `JDK`로 고른다.
+- 로컬 PostgreSQL과 앱 컨테이너의 명령은 `CLAUDE.md` 6장의 "로컬 PostgreSQL", "로컬 앱 컨테이너" 항목이다.
 - k6 E1 스크립트(`load/` 아래)는 만들 예정이다.
 
 ## 열린 질문
 
-- Q3. 앱 컨테이너의 베이스 이미지(eclipse-temurin 21, 25 JRE)의 정확한 태그는 무엇인가? Docker Hub 페이지에서 아직 확인하지 못했다(`RESEARCH.md` 10.1 (6)). 기다리는 단위: #3-2
 - Q4. k6 요청 타임아웃을 몇 초로 하고, `maxVUs`를 얼마로 할까? 앱의 `connectionTimeout` 30초를 그대로 쓰면 VU가 매우 커진다. k6 요청 타임아웃의 기본값은 문서로 확인해야 한다. 기다리는 단위: #3-4
 - Q5. E2(닫힌 모델) 스크립트는 어느 이슈에서 만들까? `RESEARCH.md` 13장 4번은 E1과 E2를 함께 적지만 어느 이슈에도 배정되어 있지 않다. #3으로 정하면 단위를 더한다. 기다리는 단위: 없음 (#3-3 전에 정하면 된다)
 
 ## 결정 기록
 
 - 2026-10-28 Q1. PostgreSQL 버전과 이미지 → `postgres:18.6-bookworm@sha256:5c4783a8cc3f0074912164f94dfa1be4e043438f0f707cf968d7af9a0d31a2c8`(다중 아키텍처 digest, Docker Hub에서 2026-10-28 확인, arm64 포함). 최신 메이저라 지원 기간이 길고, 18에서 바뀐 기본 동작(비동기 I/O, 데이터 체크섬)은 메모리에 다 올라가는 읽기 전용 PK 조회에 영향이 작을 것으로 추론했다. 설정은 기본값을 그대로 쓴다. 태그는 다시 빌드되므로 digest까지 고정한다. 기록 위치: `RESEARCH.md` 6.1 (v0.6)
+- 2026-10-29 Q3. 앱 컨테이너의 베이스 이미지 → `eclipse-temurin:21.0.12.1_1-jre-noble@sha256:cd35bb33859641c5374415826a5951845104093eaa401cbe9d3d9023444f1c13`과 `eclipse-temurin:25.0.4.1_1-jre-noble@sha256:ce8543ddd3070ccbeaac2106a74c9387ddeb8d47a1c43348345715c1ef245c7f`(둘 다 arm64 포함, 2026-10-26 빌드, `docker buildx imagetools inspect`로 2026-10-29 확인). 태그에 패치 버전이 드러나 기록에 유리하고, 두 JDK가 같은 OS(Ubuntu 24.04)를 써서 OS가 JDK 비교의 변수가 되지 않는다. 기록 위치: `RESEARCH.md` 6.1 (v0.7)
+- 2026-10-29 앱 이미지 빌드 방식 → 호스트에서 `./gradlew test bootJar`로 만든 jar를 Dockerfile이 JRE 이미지에 복사하고, JDK는 빌드 인자 `JDK`로 고른다. 테스트를 거친 jar를 그대로 쓰고 이미 기록된 빌드 명령을 재사용하려는 것이다. #4 Q1(Pi에 앱을 올리는 방법)의 전제가 된다. 기록 위치: `RESEARCH.md` 6.1 (v0.7)
 - 2026-10-28 Q2. Compose 파일 구성 → 기본 파일 `infra/compose.yaml`에 DB(이미지, `init.sql`, 계정)를 두고, #4에서 `infra/compose.pi.yaml`이 `cpuset`과 메모리 제한만 덮어쓴다. 로컬에서 확인한 DB 정의를 Pi가 그대로 써서 두 환경의 DB 설정이 어긋나지 않게 하려는 것이다. 맥북 모니터링(#4-3)은 별도 파일이다. 기록 위치: 이 이슈
 
 ## 작업 단위
 
 ### #3-1 로컬 PostgreSQL 기동
-- 상태: 완료 (2026-10-29)
+- 상태: 완료 (2026-10-29, fa421d1)
 - 동작: 기록된 Compose 명령으로 기동하면 PostgreSQL이 `item` 1만 행을 가진 채 뜨고, 맥북에서 jar로 실행한 앱의 `/query?type=pk&id=1`이 200을 반환한다.
 - 확인 방법: `SELECT count(*) FROM item`이 10000이다. 세 프로파일 각각에서 `/query`가 200, 없는 id가 404이다. 종료 명령 후 컨테이너가 남지 않는다.
 - 필요한 결정: Q1, Q2 (2026-10-28 결정됨)
@@ -70,14 +72,14 @@
   - [x] 기동과 종료 명령을 `CLAUDE.md` 6장과 `README.md`에 기록한다
 
 ### #3-2 앱 컨테이너
-- 상태: 대기
+- 상태: 완료 (2026-10-29)
 - 동작: 기록된 Compose 명령에 처리 모델과 풀 크기를 넣어 기동하면 앱 컨테이너가 PostgreSQL에 붙고, `/actuator/info`가 넣은 값을 그대로 보여 준다.
 - 확인 방법: 세 프로파일에서 `/actuator/info`의 `processingModel`, `poolSize`, `javaVersion`이 넣은 값과 같고 `/query`가 200이다. 프로파일이나 `POOL_SIZE`를 빠뜨리면 기동이 실패한다.
-- 필요한 결정: Q3
+- 필요한 결정: Q3 (2026-10-29 결정됨)
 - 할 일:
-  - [ ] 베이스 이미지 태그를 고정한 앱 이미지 빌드 방법을 만든다
-  - [ ] Compose에 앱 서비스를 더하고, 실험 변수를 환경변수로 넘긴다
-  - [ ] 명령을 `CLAUDE.md` 6장과 `README.md`에 기록한다
+  - [x] 베이스 이미지 태그를 고정한 앱 이미지 빌드 방법을 만든다
+  - [x] Compose에 앱 서비스를 더하고, 실험 변수를 환경변수로 넘긴다
+  - [x] 명령을 `CLAUDE.md` 6장과 `README.md`에 기록한다
 
 ### #3-3 k6 E1 최소 스크립트
 - 상태: 대기
@@ -122,3 +124,23 @@
 - 남은 일: #3-2(앱 컨테이너), #3-3, #3-4
 - 막힌 점 / 확인 필요: DB 계정 이름과 암호를 `poolsweep`으로 정했다. LAN 전용 실험 계정이라 별도 결정 없이 정했으며, 바꾸려면 Compose, `CLAUDE.md` 6장, `README.md`를 함께 고친다. #3-2는 Q3(eclipse-temurin 21, 25 JRE 태그와 digest)의 결정이 먼저 필요하다.
 - 다음 세션 첫 작업: Q3를 위해 eclipse-temurin 21, 25 JRE 태그와 다중 아키텍처 digest를 확인해 연구자에게 결정을 받는다.
+
+### 핸드오프 (2026-10-29, #3-2)
+- 한 일: Q3와 빌드 방식을 연구자에게 받아 결정 기록과 `RESEARCH.md` 6.1(v0.7)에 남기고, 앱 컨테이너를 만들었다.
+  - [app/Dockerfile](../app/Dockerfile)
+    - 역할과 기능: JRE 21, 25 이미지를 태그와 digest로 고정해 두고, 빌드 인자 `JDK`로 고른 쪽에 `build/libs`의 jar를 복사한다. JVM 옵션은 넣지 않는다. jar를 만들지는 않으므로 호출하는 쪽이 먼저 `./gradlew test bootJar`를 실행해야 한다. [app/.dockerignore](../app/.dockerignore)가 빌드 컨텍스트를 jar 하나로 줄인다.
+    - 쓰이는 곳: 지금은 `infra/compose.yaml`의 `app` 서비스가 빌드한다. 앞으로 #4의 Pi 배포와 #5의 실행 스크립트가 쓴다(미연결).
+    - 없으면 안 되는 이유: 이 파일이 없으면 JDK 21과 25를 비교할 때 호스트 JDK에 의존하게 되어, 예를 들어 Pi와 맥북의 JDK 패치 버전이 달라도 결과에 드러나지 않는다.
+    - 전/후 비교: 전에는 앱을 호스트 JDK로 jar 실행만 할 수 있었다. 후에는 고정된 JRE 이미지로 띄울 수 있다.
+  - [infra/compose.yaml](../infra/compose.yaml)
+    - 역할과 기능: `app` 서비스를 더했다. 실험 변수(`SPRING_PROFILES_ACTIVE`, `POOL_SIZE`, `IO_PARALLELISM`)와 빌드 인자 `JDK`는 이름만 적어서, 셸에 있을 때만 넘긴다. 접속 정보는 `db` 서비스로 고정하고, DB가 healthy가 된 뒤에 뜬다.
+    - 쓰이는 곳: 지금은 로컬에서 기록된 명령으로 쓴다. #3-3의 k6가 이 앱에 부하를 건다(미연결).
+    - 없으면 안 되는 이유: `POOL_SIZE: ${POOL_SIZE}`처럼 값을 쓰면 빠뜨렸을 때 빈 문자열이 넘어간다. 빈 값을 이름만 적는 방식으로 바꾸면 변수가 아예 설정되지 않아 앱 기동이 실패하고, 엉뚱한 풀 크기로 측정되는 일을 막는다. 또 `down`처럼 변수가 필요 없는 명령도 변수 없이 돈다.
+    - 전/후 비교: 전에는 `db` 서비스만 있었다. 후에는 `app` 서비스가 더해졌고, DB만 띄우는 명령은 `up -d --wait db`로 바뀌었다.
+- 확인 결과 (로컬 맥북, 커밋 `fa421d1` 위의 작업 트리, 동작 확인용): JDK 21과 25 각각에서 세 프로파일 모두 `/query?type=pk&id=1`과 `type=sleep10&id=2`가 200, `id=99999`가 404였다. `/actuator/info`의 `processingModel`, `poolSize`(7), `ioParallelism`(코루틴 16, 나머지 n/a), `javaVersion`(21.0.12.1, 25.0.4.1)이 넣은 값과 같았다. `JDK`를 빠뜨리면 빌드가 `FROM jre`에서 실패했고, `POOL_SIZE`를 빠뜨리면 `NumberFormatException`으로, 프로파일을 빠뜨리면 `IllegalStateException`으로 앱이 종료 코드 1로 끝났다. `up -d --wait db`로 DB만 띄워 1만 행을 확인했고, `down -v` 뒤에 컨테이너와 볼륨이 남지 않았다.
+- 남은 일: #3-3, #3-4
+- 막힌 점 / 확인 필요:
+  - 컨테이너의 `availableProcessors`는 맥북 Docker VM의 8이었다. Pi에서는 `cpuset`(#4-2)에 따라 달라지므로 그때 다시 본다.
+  - 컨테이너 메모리 제한이 없어서 JVM 기본 힙이 Docker VM 메모리를 따른다. 값은 #4 Q2와 #6 Q2에서 정한다.
+  - zsh에서 명령을 변수에 담아 `$C up`처럼 쓰면 공백이 나뉘지 않아 실패한다. `CLAUDE.md` 6장에 적어 두었다.
+- 다음 세션 첫 작업: #3-3 전에 Q5(E2 스크립트를 어느 이슈에서 만들지)를 연구자에게 받고, k6 버전을 확인한다.

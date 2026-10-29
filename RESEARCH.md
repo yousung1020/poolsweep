@@ -79,7 +79,7 @@ Spring Boot(Kotlin)에서 요청 처리 모델(플랫폼 스레드풀 / 가상 �
   - 쿼리 유형 (2026-10-23 결정): 세 유형 모두 같은 PK 조회이고 지연만 다르다. `pk`는 `SELECT id, payload FROM item WHERE id = ?`, `sleep10`과 `sleep50`은 같은 조회에 `pg_sleep(0.010)`, `pg_sleep(0.050)`을 FROM 절로 더한다. id가 있으면 `pg_sleep`은 요청당 정확히 한 번 실행되고 없으면 실행되지 않는다(EXPLAIN ANALYZE로 확인).
   - id는 k6가 시드 범위(1~10000)에서 골라 파라미터로 보낸다. 앱은 받은 값으로만 동작해 세 프로파일에서 같고, k6 시드를 고정하면 요청 순서까지 재현할 수 있다.
 - **계측**: Actuator + Micrometer(Prometheus)로 풀 지표를 노출한다.
-- **DB**: PostgreSQL. `item(id bigint PK, payload text)`에 100바이트 payload 1만 행(약 1.6MB)을 둔다. 스키마와 시드는 DB 컨테이너의 초기화 스크립트(`infra/db/init.sql`)가 만들고, 앱은 기동 중에 스키마를 만들지 않는다.
+- **DB**: PostgreSQL 18.6. 이미지는 `postgres:18.6-bookworm@sha256:5c4783a8cc3f0074912164f94dfa1be4e043438f0f707cf968d7af9a0d31a2c8`로 태그와 digest를 함께 고정한다(2026-10-28 연구자 결정). 같은 태그도 기반 이미지 갱신으로 다시 빌드되기 때문이다(이 태그는 2026-10-28에 다시 빌드되었다). PostgreSQL 설정은 이미지 기본값을 그대로 쓴다. `item(id bigint PK, payload text)`에 100바이트 payload 1만 행(약 1.6MB)을 둔다. 스키마와 시드는 DB 컨테이너의 초기화 스크립트(`infra/db/init.sql`)가 만들고, 앱은 기동 중에 스키마를 만들지 않는다.
 
 ### 6.2 실험 환경 (하드웨어)
 
@@ -286,7 +286,7 @@ MariaDB 블로그 실험이 부분 선행이므로, "병목이 이동한다" 자
 **(6) 코어 분리와 arm64 이미지 (문서 확인까지)**
 - Compose의 `cpuset`은 실행을 허용할 CPU를 범위(`0-3`) 또는 목록(`0,1`)으로 지정한다. `cpus`(소수 CPU 수)와 `mem_limit`도 있고, 설정하면 Deploy Specification의 값과 일치해야 한다. ([Compose services](https://docs.docker.com/reference/compose-file/services/))
 - 공식 `postgres` 이미지와 `eclipse-temurin` 이미지는 모두 `arm64v8`을 제공한다. postgres는 확인 시점에 18.6과 17.11이 최신 패치였다(예: `18.6-bookworm`). eclipse-temurin의 21, 25 JRE 정확한 태그는 Docker Hub 페이지에서 확인하지 못했다. ([postgres](https://hub.docker.com/_/postgres), [eclipse-temurin](https://hub.docker.com/_/eclipse-temurin))
-- 확인하지 못한 것: Pi OS에서 cgroup cpuset이 켜져 있어 `cpuset`이 실제로 적용되는지, PostgreSQL 메이저 버전과 이미지 태그 선택. 이는 #3, #4에서 정한다.
+- 확인하지 못한 것: Pi OS에서 cgroup cpuset이 켜져 있어 `cpuset`이 실제로 적용되는지. 이는 #4에서 정한다. PostgreSQL 버전은 2026-10-28에 18.6으로 정했다(6.1).
 
 **문서 가정과 다른 점과 결정 (2026-10-23 연구자 결정, 반영 위치는 괄호 안)**
 - D1. `dropped_iterations` > 0은 서버 포화로도 생긴다(k6 문서). **결정**: `maxVUs`를 도착률 × 요청 타임아웃 이상으로 잡고, 드롭이 남으면 원인을 단정하지 않고 생성기 CPU와 함께 기록해 구분한다. 6.6의 정의는 바꾸지 않았다. (6.5, 7장)
@@ -344,3 +344,4 @@ MariaDB 블로그 실험이 부분 선행이므로, "병목이 이동한다" 자
 - v0.4.1 (2026-10-23): JDK 25의 LTS 여부(D5)와 `limitedParallelism`의 상한 동작(D2)을 웹 검색과 소스로 확인해 10.1절에 기록. 설계는 바꾸지 않았다
 - v0.4.2 (2026-10-23): 로컬 확인 2건(MVC suspend의 실행 스레드, `limitedParallelism(n)`의 n > 64 동작) 결과를 10.1절에 기록하고 2장과 H3의 상한 표현을 고쳤다. 코루틴 프로파일은 가상 스레드 설정을 끄고 실행해야 한다는 점을 기록했다. 빌드 도구(Gradle Kotlin DSL)를 7장에 추가했다. HikariCP 기본값과 코어 분리/arm64 이미지의 문서 확인 결과를 (5), (6)에 추가했다
 - v0.5 (2026-10-23): #2 앱 뼈대의 결정을 6.1에 기록. 쿼리 유형은 요청 파라미터로 받고(13장 문구를 6.1에 맞춤), 지연 쿼리는 PK 조회에 `pg_sleep`을 더한 형태, id는 k6가 전달, 스키마와 시드는 `infra/db/init.sql`의 1만 행으로 정했다
+- v0.6 (2026-10-28): PostgreSQL 버전과 이미지 고정 방식(18.6, 태그와 digest)을 6.1에 기록

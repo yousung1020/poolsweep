@@ -3,3 +3,6 @@
 .gradle/
 build/
 .kotlin/
+
+# load/install-k6.sh가 내려받는 k6 바이너리
+load/.bin/

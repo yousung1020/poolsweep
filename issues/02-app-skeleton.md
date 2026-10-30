@@ -14,7 +14,7 @@
 
 - `./gradlew test bootJar`가 성공한다.
 - 세 프로파일 모두 `/query`와 `/ping`에 응답하고, `/actuator/info`가 실제 적용 설정을, `/actuator/prometheus`가 풀 지표를 보여 준다.
-- 빌드와 실행 명령이 `CLAUDE.md` 6장과 `README.md`에 기록되어 있다.
+- 빌드와 실행 명령이 `AGENTS.md` 6장과 `README.md`에 기록되어 있다.
 
 ## 작업 맥락
 
@@ -24,8 +24,8 @@
 - IO 병렬도는 `default`(`Dispatchers.IO`)와 `limitedParallelism(n)`이다. (`RESEARCH.md` 6.3, D2)
 
 ### 지켜야 할 규칙
-- 공통 코드(레포지토리, 쿼리)는 세 프로파일이 똑같이 쓴다. (`CLAUDE.md` 2장)
-- 풀 크기 외의 HikariCP, 톰캣 설정은 기본값으로 고정한다. (`CLAUDE.md` 2장)
+- 공통 코드(레포지토리, 쿼리)는 세 프로파일이 똑같이 쓴다. (`AGENTS.md` 2장)
+- 풀 크기 외의 HikariCP, 톰캣 설정은 기본값으로 고정한다. (`AGENTS.md` 2장)
 
 ### 관련 파일과 명령
 - [app/build.gradle.kts](../app/build.gradle.kts): 의존성과 버전이다.
@@ -33,7 +33,7 @@
 - [app/src/main/kotlin/poolsweep/](../app/src/main/kotlin/poolsweep/): 쿼리 정의, 프로파일 검사와 설정 노출, 레포지토리, 컨트롤러이다.
 - [app/src/test/kotlin/poolsweep/ProcessingModelProfileTest.kt](../app/src/test/kotlin/poolsweep/ProcessingModelProfileTest.kt): 프로파일별 동작 테스트이다.
 - [infra/db/init.sql](../infra/db/init.sql): `item` 1만 행 시드이다.
-- 명령: `CLAUDE.md` 6장의 "앱" 항목이다.
+- 명령: `AGENTS.md` 6장의 "앱" 항목이다.
 
 ## 열린 질문
 
@@ -60,7 +60,7 @@
 - [x] `/query`(쿼리 유형 파라미터)와 `/ping`(DB 미호출)을 만든다
 - [x] 풀 크기, 처리 모델, IO 병렬도는 환경변수로 주입한다. 쿼리 유형과 id는 요청 파라미터로 받는다(연구자 결정, `RESEARCH.md` 6.1)
 - [x] Actuator + Micrometer(Prometheus)로 풀 지표를 노출한다
-- [x] 빌드와 실행 명령을 확인해 `CLAUDE.md` 6장에 기록한다
+- [x] 빌드와 실행 명령을 확인해 `AGENTS.md` 6장에 기록한다
 
 ## 결과
 

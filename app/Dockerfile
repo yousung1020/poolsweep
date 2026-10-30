@@ -11,5 +11,5 @@ FROM jre${JDK}
 WORKDIR /app
 COPY build/libs/poolsweep-app-0.0.1-SNAPSHOT.jar app.jar
 EXPOSE 8080
-# JVM 옵션은 넣지 않고 기본값으로 고정한다(CLAUDE.md 2장). 실제 값은 /actuator/info로 기록한다.
+# JVM 옵션은 넣지 않고 기본값으로 고정한다(AGENTS.md 2장). 실제 값은 /actuator/info로 기록한다.
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

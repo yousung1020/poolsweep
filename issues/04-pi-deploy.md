@@ -15,7 +15,7 @@
 - Pi용 Compose로 앱(코어 0-1)과 PostgreSQL(코어 2-3)이 기동하고, 각 컨테이너가 실제로 지정한 코어에서만 도는 것이 확인되어 있다.
 - 맥북의 Prometheus가 Pi 앱의 `/actuator/prometheus`를 수집하고 Grafana에서 풀 지표를 볼 수 있다.
 - Pi의 온도와 스로틀링을 기록하는 방법이 정해져 있다.
-- Pi 배포와 실행 명령이 `CLAUDE.md` 6장과 `README.md`에 기록되어 있다.
+- Pi 배포와 실행 명령이 `AGENTS.md` 6장과 `README.md`에 기록되어 있다.
 
 ## 작업 맥락
 
@@ -29,12 +29,12 @@
 - 앱은 LAN 안에서만 접근하고 인터넷에 노출하지 않는다(포트포워딩 금지). (`RESEARCH.md` 5장)
 
 ### 지켜야 할 규칙
-- Pi에서 명령을 실행하기 전에 연구자에게 알린다. Pi는 측정 환경이라 의도하지 않은 변경이 결과에 영향을 준다. (`CLAUDE.md` 6장)
-- 이미지 태그를 고정하고, 배포 방법을 `README.md`에 쓴다. (`CLAUDE.md` 4장)
+- Pi에서 명령을 실행하기 전에 연구자에게 알린다. Pi는 측정 환경이라 의도하지 않은 변경이 결과에 영향을 준다. (`AGENTS.md` 6장)
+- 이미지 태그를 고정하고, 배포 방법을 `README.md`에 쓴다. (`AGENTS.md` 4장)
 
 ### 관련 파일과 명령
 - [infra/db/init.sql](../infra/db/init.sql): Pi의 PostgreSQL도 같은 시드를 쓴다.
-- #3에서 만든 로컬 Compose와 명령(`CLAUDE.md` 6장)을 바탕으로 한다.
+- #3에서 만든 로컬 Compose와 명령(`AGENTS.md` 6장)을 바탕으로 한다.
 - Pi용 Compose와 맥북용 Compose(Prometheus, Grafana)는 `infra/` 아래에 만들 예정이다.
 
 ## 열린 질문
@@ -56,9 +56,9 @@
 - 확인 방법: 맥북에서 세 프로파일의 `/query`, `/ping`, `/actuator/info`가 응답하고, `/actuator/info`의 `availableProcessors`와 JDK가 기대값과 같다.
 - 필요한 결정: Q1, Q2
 - 할 일:
-  - [ ] Pi에서 명령을 실행하기 전에 연구자에게 알린다 (`CLAUDE.md` 6장)
+  - [ ] Pi에서 명령을 실행하기 전에 연구자에게 알린다 (`AGENTS.md` 6장)
   - [ ] arm64 이미지와 메모리 제한을 넣은 Pi용 Compose를 만든다
-  - [ ] 배포, 기동, 종료 명령을 `CLAUDE.md` 6장과 `README.md`에 기록한다
+  - [ ] 배포, 기동, 종료 명령을 `AGENTS.md` 6장과 `README.md`에 기록한다
 
 ### #4-2 코어 분리
 - 상태: 대기
@@ -76,7 +76,7 @@
 - 필요한 결정: 없음
 - 할 일:
   - [ ] 이미지 태그를 고정한 맥북용 Compose와 수집 설정을 만든다
-  - [ ] 명령을 `CLAUDE.md` 6장과 `README.md`에 기록한다
+  - [ ] 명령을 `AGENTS.md` 6장과 `README.md`에 기록한다
 
 ### #4-4 온도와 스로틀링 기록
 - 상태: 대기
@@ -85,7 +85,7 @@
 - 필요한 결정: Q4
 - 할 일:
   - [ ] Pi에서 명령을 실행하기 전에 연구자에게 알린다
-  - [ ] 기록 방법을 만들고 `CLAUDE.md` 6장과 `README.md`에 기록한다
+  - [ ] 기록 방법을 만들고 `AGENTS.md` 6장과 `README.md`에 기록한다
 
 ## 결과
 

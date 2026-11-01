@@ -1,7 +1,7 @@
 # RESEARCH.md: 요청 처리 모델과 HikariCP 풀 크기
 
 > 이 파일은 연구의 단일 기준 문서입니다. 새 세션(AI 에이전트 포함)은 이 파일을 가장 먼저 읽고 시작합니다.
-> 상태: 기획 단계 (파일럿 전). 최종 수정: 2026-10-29 (v0.8).
+> 상태: 기획 단계 (파일럿 전). 최종 수정: 2026-10-30 (v0.9).
 > 논문화 여부는 파일럿 이후 결정합니다. 어느 쪽이든 코드, 데이터, 실험 노트는 공개 저장소로 남깁니다.
 > "확인 필요"로 표시된 항목은 제가 아는 범위에서 정리한 것이므로 공식 문서나 원문으로 확인한 뒤 이 문서에 기록합니다.
 
@@ -137,7 +137,7 @@ Spring Boot(Kotlin)에서 요청 처리 모델(플랫폼 스레드풀 / 가상 �
 - 풀 지표 (Micrometer): active, idle, pending, acquire 시간
 - DB 지표: 활성 연결 수, CPU
 - 가상 스레드 핀닝: JFR의 `VirtualThreadPinned` 이벤트 (JDK별 지원 확인)
-- 부하 생성기 건강성: k6의 `dropped_iterations`와 생성기 CPU (D1). k6 문서에 따르면 드롭은 VU 부족(설정) 외에 서버 응답이 느려져 VU가 모두 묶일 때도 생긴다. 그래서 `maxVUs`를 도착률 × 요청 타임아웃 이상으로 잡아 서버 포화로 인한 VU 부족을 줄이고, 드롭이 남으면 원인을 단정하지 않고 생성기 CPU와 함께 기록해 구분한다. 드롭이 0이 아닌 단계는 무효 후보로 표시하며, 지속 가능 처리량 조건 (b)는 6.6 그대로 적용한다.
+- 부하 생성기 건강성: k6의 `dropped_iterations`와 생성기 CPU (D1). k6 문서에 따르면 드롭은 VU 부족(설정) 외에 서버 응답이 느려져 VU가 모두 묶일 때도 생긴다. 그래서 요청 타임아웃은 10초로 고정하고(2026-10-30 연구자 결정, k6 기본값 60초는 너무 길고 HikariCP 30초보다 현실적인 SLA 한계 반영), `maxVUs`는 도착률 × (타임아웃 + 1) × 1.2로 계산해 20% 여유 버퍼를 둔다(2026-10-30 연구자 결정). 또한 k6가 동적으로 VU를 늘릴 때의 생성 지연으로 인한 드롭을 막기 위해 `preAllocatedVUs`는 `maxVUs`와 같게 사전 할당한다(2026-10-30 로컬 확인). 이렇게 하여 서버 포화로 인한 VU 부족을 줄이고, 드롭이 남으면 원인을 단정하지 않고 생성기 CPU와 함께 기록해 구분한다. 드롭이 0이 아닌 단계는 무효 후보로 표시하며, 지속 가능 처리량 조건 (b)는 6.6 그대로 적용한다.
 - 환경 지표: Pi 온도와 스로틀링 여부, `/ping` 기준선 지연
   - `/ping` 기준선은 두 구간에서 잰다(2026-10-29 연구자 결정). (a) `/query` 부하 전에 `/ping`만 보내는 구간은 부하가 없을 때의 네트워크와 프레임워크 기본 지연이다. (b) `/query` 부하 중에 같은 낮은 도착률로 함께 보내는 `/ping`은 DB와 풀을 거치지 않으므로, 이 지연이 오르면 풀이 아니라 앱 CPU나 톰캣 큐 쪽 대기가 늘었다는 단서가 된다. 두 구간의 도착률과 부하 전 구간의 길이는 실행 인자로 받는다.
 
@@ -278,11 +278,13 @@ MariaDB 블로그 실험이 부분 선행이므로, "병목이 이동한다" 자
 - `constant-arrival-rate`: `rate`(필수), `timeUnit`(기본 `1s`), `duration`(필수), `preAllocatedVUs`(필수), `maxVUs`(미설정 시 `preAllocatedVUs`와 같음). `ramping-arrival-rate`: `stages`(필수), `preAllocatedVUs`(필수), `startRate`(기본 0), `timeUnit`, `maxVUs`.
 - 남는 VU가 있어야만 반복을 시작한다. `dropped_iterations`(Counter)는 "VU가 부족해서 시작하지 못한 반복 수"다.
 - k6 문서는 드롭의 원인을 **설정(VU 부족)**과 **SUT 성능 저하(응답이 길어져 VU가 모두 묶임)** 두 가지로 나눈다. 테스트 중반 이후의 드롭은 SUT 쪽일 가능성이 있다고 적는다.
-- 출처: [constant-arrival-rate](https://grafana.com/docs/k6/latest/using-k6/scenarios/executors/constant-arrival-rate/), [ramping-arrival-rate](https://grafana.com/docs/k6/latest/using-k6/scenarios/executors/ramping-arrival-rate/), [Dropped iterations](https://grafana.com/docs/k6/latest/using-k6/scenarios/concepts/dropped-iterations/), [Metrics reference](https://grafana.com/docs/k6/latest/using-k6/metrics/reference/)
+- k6 공식 문서 확인(v2.3.0 기준): HTTP 요청 타임아웃 기본값은 `60s`이다.
+- 로컬 확인(2026-10-30, 맥북 M1, k6 v2.3.0, #3-4): 요청 타임아웃 10초, `maxVUs = ceil(RATE * 11 * 1.2)`로 검증했다. 300건/초, sleep50 극심한 과부하(타임아웃 1986건 발생)에서 `preAllocatedVUs`를 작게 잡으면 k6의 런타임 동적 스케일업 속도 지연으로 620건의 드롭이 발생했다. 반면 `preAllocatedVUs = maxVUs = 3960`으로 사전 할당했을 때는 드롭이 정확히 0이었고 3,000건 전체가 정상 전달되었다. 맥북에서 약 4,000개의 VU를 `ulimit -n 65536` 환경에서 충분히 감당함을 확인했다.
+- 출처: [constant-arrival-rate](https://grafana.com/docs/k6/latest/using-k6/scenarios/executors/constant-arrival-rate/), [ramping-arrival-rate](https://grafana.com/docs/k6/latest/using-k6/scenarios/executors/ramping-arrival-rate/), [Dropped iterations](https://grafana.com/docs/k6/latest/using-k6/scenarios/concepts/dropped-iterations/), [Metrics reference](https://grafana.com/docs/k6/latest/using-k6/metrics/reference/), [HTTP Requests Params](https://grafana.com/docs/k6/latest/javascript-api/k6-http/params/)
 
 **(5) HikariCP 기본값**
 - `maximumPoolSize` 10, `minimumIdle`은 `maximumPoolSize`와 같음(설정하지 않으면 고정 크기 풀), `connectionTimeout` 30000ms(최소 250ms), `idleTimeout` 600000ms(`minimumIdle` < `maximumPoolSize`일 때만 적용), `maxLifetime` 1800000ms, `keepaliveTime` 120000ms. README는 `minimumIdle`을 설정하지 않고 고정 크기 풀로 쓰기를 권장한다.
-- 이 연구에 주는 의미: 풀 크기 외의 값은 기본값으로 고정하고 기록한다(AGENTS.md 2장). 기본값 그대로면 풀이 고정 크기여서 실행 중에 연결 수가 바뀌지 않는다. D1의 `maxVUs` 기준(도착률 × 요청 타임아웃)에 `connectionTimeout` 30초를 넣으면 VU 수가 커진다(예: 500건/초 × 30초 = 15,000 VU). 맥북 k6가 감당하는지, 요청 타임아웃을 무엇으로 볼지는 #3에서 정한다.
+- 이 연구에 주는 의미: 풀 크기 외의 값은 기본값으로 고정하고 기록한다(AGENTS.md 2장). 기본값 그대로면 풀이 고정 크기여서 실행 중에 연결 수가 바뀌지 않는다. D1의 `maxVUs` 기준에서 `connectionTimeout` 30초 대신 웹 SLA에 맞춘 10초 타임아웃을 적용해 500건/초에서도 약 6,600 VU 수준으로 생성기 부담을 제어하기로 정했다(#3-4).
 - 출처: [HikariCP README](https://github.com/brettwooldridge/HikariCP/blob/dev/README.md)
 
 **(6) 코어 분리와 arm64 이미지 (문서 확인까지)**
@@ -349,3 +351,4 @@ MariaDB 블로그 실험이 부분 선행이므로, "병목이 이동한다" 자
 - v0.6 (2026-10-28): PostgreSQL 버전과 이미지 고정 방식(18.6, 태그와 digest)을 6.1에 기록
 - v0.7 (2026-10-29): 앱 이미지 빌드 방식(호스트 jar 복사)과 JRE 이미지(Temurin 21.0.12.1, 25.0.4.1 noble, 태그와 digest)를 6.1에 기록하고 10.1 (6)의 확인 결과를 갱신
 - v0.8 (2026-10-29): k6 설치와 버전 고정 방식(v2.3.0 공식 바이너리, SHA-256)을 6.9에, `/ping` 기준선을 부하 전과 부하 중 두 구간에서 재는 방식을 6.5에, E2 스크립트를 결정 1 뒤로 미룬 결정을 6.3에 기록
+- v0.9 (2026-10-30): k6 요청 타임아웃 기본값 확인(60초)을 10.1에, 요청 타임아웃 10초와 `maxVUs`(도착률 × 11 × 1.2), `preAllocatedVUs = maxVUs` 사전 할당 규칙을 6.5와 10.1에 기록(#3-4 완료)

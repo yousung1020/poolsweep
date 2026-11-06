@@ -3,7 +3,7 @@
 - 상태: 진행 중
 - 선행: #3 (완료), 연구자의 Pi 방열, 전원, 유선 LAN 점검
 - 후행: #5
-- 최종 갱신: 2026-11-05
+- 최종 갱신: 2026-11-06
 - 출처: 2026-10-23에 GitHub 이슈 #4에서 이 파일로 옮겼다. 원본 이슈는 삭제했다.
 
 ## 목표
@@ -35,7 +35,7 @@
 ### 관련 파일과 명령
 - [infra/db/init.sql](../infra/db/init.sql): Pi의 PostgreSQL도 같은 시드를 쓴다.
 - #3에서 만든 로컬 Compose와 명령(`AGENTS.md` 6장)을 바탕으로 한다.
-- Pi용 Compose와 맥북용 Compose(Prometheus, Grafana)는 `infra/` 아래에 만들 예정이다.
+- [infra/compose.monitoring.yaml](../infra/compose.monitoring.yaml): 맥북용 Prometheus와 Grafana이며 #4-3에서 만들었다. Pi용 Compose(`infra/compose.pi.yaml`)는 #4-1에서 만들 예정이다.
 
 ## 열린 질문
 

@@ -1,7 +1,7 @@
 # RESEARCH.md: 요청 처리 모델과 HikariCP 풀 크기
 
 > 이 파일은 연구의 단일 기준 문서입니다. 새 세션(AI 에이전트 포함)은 이 파일을 가장 먼저 읽고 시작합니다.
-> 상태: 기획 단계 (파일럿 전). 최종 수정: 2026-11-05 (v0.10).
+> 상태: 기획 단계 (파일럿 전). 최종 수정: 2026-11-06 (v0.11).
 > 논문화 여부는 파일럿 이후 결정합니다. 어느 쪽이든 코드, 데이터, 실험 노트는 공개 저장소로 남깁니다.
 > "확인 필요"로 표시된 항목은 제가 아는 범위에서 정리한 것이므로 공식 문서나 원문으로 확인한 뒤 이 문서에 기록합니다.
 
@@ -168,7 +168,7 @@ Spring Boot(Kotlin)에서 요청 처리 모델(플랫폼 스레드풀 / 가상 �
 
 ### 6.9 도구
 
-k6(부하, 주 실험은 arrival-rate executor. v2.3.0 macOS arm64 공식 바이너리를 SHA-256으로 고정해 `load/install-k6.sh`로 설치한다. 2026-10-29 연구자 결정. brew는 버전을 고정할 수 없고, 컨테이너로 돌리면 Docker VM의 NAT와 자원 제한이 지연과 VU 수에 끼어들기 때문이다), Prometheus + Grafana(수집), Python(pandas, matplotlib)으로 분석. 부하 생성기는 앱과 DB로부터 CPU를 분리한다.
+k6(부하, 주 실험은 arrival-rate executor. v2.3.0 macOS arm64 공식 바이너리를 SHA-256으로 고정해 `load/install-k6.sh`로 설치한다. 2026-10-29 연구자 결정. brew는 버전을 고정할 수 없고, 컨테이너로 돌리면 Docker VM의 NAT와 자원 제한이 지연과 VU 수에 끼어들기 때문이다), Prometheus + Grafana(수집. 2026-11-05 연구자 결정으로 `prom/prometheus:v3.15.1`과 `grafana/grafana:13.3.0`을 태그와 다중 아키텍처 digest로 고정하고 맥북의 `infra/compose.monitoring.yaml`로 띄운다. Pi에는 올리지 않는다. 스크랩 주기 5초와 타임아웃 3초는 실험 변수가 아니라 고정값이며 실험 중 바꾸지 않는다. 타임아웃 3초는 주기보다 짧아야 한다는 조건에서 정한 값이고, 수집 대상 주소는 `SCRAPE_TARGET`으로 바꾼다), Python(pandas, matplotlib)으로 분석. 부하 생성기는 앱과 DB로부터 CPU를 분리한다.
 
 ## 7. 확정된 결정
 
@@ -292,6 +292,7 @@ MariaDB 블로그 실험이 부분 선행이므로, "병목이 이동한다" 자
 **(6) 코어 분리와 arm64 이미지 (문서 확인까지)**
 - Compose의 `cpuset`은 실행을 허용할 CPU를 범위(`0-3`) 또는 목록(`0,1`)으로 지정한다. `cpus`(소수 CPU 수)와 `mem_limit`도 있고, 설정하면 Deploy Specification의 값과 일치해야 한다. ([Compose services](https://docs.docker.com/reference/compose-file/services/))
 - 공식 `postgres` 이미지와 `eclipse-temurin` 이미지는 모두 `arm64v8`을 제공한다. postgres는 확인 시점에 18.6과 17.11이 최신 패치였다(예: `18.6-bookworm`). eclipse-temurin은 2026-10-29에 `docker buildx imagetools inspect`로 `21.0.12.1_1-jre-noble`과 `25.0.4.1_1-jre-noble`이 `linux/arm64/v8`을 포함하고 2026-10-26에 빌드된 것을 확인했다(6.1). ([postgres](https://hub.docker.com/_/postgres), [eclipse-temurin](https://hub.docker.com/_/eclipse-temurin))
+- Prometheus v3.15.1과 Grafana 13.3.0은 2026-11-05에 Docker Hub API로 amd64와 arm64를 포함하는 것을 확인했다. 두 이미지는 맥북(M1)에서만 쓰고 Pi에는 올리지 않으며, 맥북에서는 `linux/arm64`로 실행되는 것을 Prometheus 기동 로그로 확인했다. Prometheus v3.15.1은 `--enable-feature=expand-environment-variables`를 "Unknown option"으로 무시하므로, 수집 대상 주소는 설정 파일이 아니라 Compose의 `configs.content` 치환으로 주입한다. ([prom/prometheus](https://hub.docker.com/r/prom/prometheus), [grafana/grafana](https://hub.docker.com/r/grafana/grafana))
 - 확인하지 못한 것: Pi OS에서 cgroup cpuset이 켜져 있어 `cpuset`이 실제로 적용되는지. 이는 #4에서 정한다. PostgreSQL 버전은 2026-10-28에 18.6으로 정했다(6.1).
 
 **문서 가정과 다른 점과 결정 (2026-10-23 연구자 결정, 반영 위치는 괄호 안)**
@@ -335,7 +336,7 @@ MariaDB 블로그 실험이 부분 선행이므로, "병목이 이동한다" 자
 
 1. 코드를 만들기 전에 이 문서의 5장(범위), 6장(설계), 10장(TODO)을 읽고, 모호한 부분은 질문한다.
 2. `app/`: Kotlin Spring Boot 프로젝트. `/query`(쿼리 유형 선택)와 `/ping`을 3개 프로파일로 구현하고, 서비스와 레포지토리는 공유한다. 풀 크기, 처리 모델, IO 병렬도는 환경변수로 주입하고, 쿼리 유형은 요청 파라미터로 받는다(6.1). Actuator + Micrometer 지표를 노출한다. 5장의 "구현하지 않는 것"은 추가하지 않는다.
-3. `infra/`: Compose 파일을 둘로 분리한다. (a) Pi용: 앱 + PostgreSQL, `cpuset`으로 코어 분리, arm64 이미지, 메모리 제한 명시. (b) 맥북용: Prometheus + Grafana (+ k6). Prometheus는 Pi의 앱 메트릭을 원격으로 스크랩한다.
+3. `infra/`: Compose 파일을 둘로 분리한다. (a) Pi용: 앱 + PostgreSQL, `cpuset`으로 코어 분리, arm64 이미지, 메모리 제한 명시. (b) 맥북용: Prometheus + Grafana(k6는 컨테이너가 아니라 고정한 바이너리로 돌린다. 6.9). Prometheus는 Pi의 앱 메트릭을 원격으로 스크랩한다.
 4. `load/`: k6 스크립트 두 종류. E1(주): arrival-rate executor로 도착률 스윕, E2(보조): VU 수 변수화. 결과를 CSV로 저장하고 `dropped_iterations`와 `/ping` 기준선도 함께 기록한다.
 5. 파일럿 실행 스크립트(설정당 반복, 순서 무작위화, 스로틀링과 온도 기록)와 `LAB_NOTEBOOK.md` 자동 기록, `README.md` 재현 가이드.
 6. 모든 버전(JDK, Spring Boot, 드라이버, 이미지 태그)을 고정해 기록한다.
@@ -355,3 +356,4 @@ MariaDB 블로그 실험이 부분 선행이므로, "병목이 이동한다" 자
 - v0.8 (2026-10-29): k6 설치와 버전 고정 방식(v2.3.0 공식 바이너리, SHA-256)을 6.9에, `/ping` 기준선을 부하 전과 부하 중 두 구간에서 재는 방식을 6.5에, E2 스크립트를 결정 1 뒤로 미룬 결정을 6.3에 기록
 - v0.9 (2026-10-30): k6 요청 타임아웃 기본값 확인(60초)을 10.1에, 요청 타임아웃 10초와 `maxVUs`(도착률 × 11 × 1.2), `preAllocatedVUs = maxVUs` 사전 할당 규칙을 6.5와 10.1에 기록(#3-4 완료)
 - v0.10 (2026-11-05): Pi로 앱 이미지를 옮기는 방법(맥북 arm64 빌드)을 6.1에, 컨테이너 메모리 제한의 초깃값(앱 1.5GB, DB 1.5GB)을 6.2에 기록(#4 Q1, Q2)
+- v0.11 (2026-11-06): 맥북용 Prometheus와 Grafana의 이미지 고정(v3.15.1, 13.3.0)과 스크랩 주기 5초, 타임아웃 3초를 6.9에, arm64 확인과 환경변수 치환 불가 사실을 10.1 (6)에 기록하고, 13장의 맥북용 Compose 설명에서 k6를 뺐다(#4-3). 설계와 정의는 바꾸지 않았다

@@ -67,6 +67,11 @@
   - 설치: `bash load/install-k6.sh`. v2.3.0 macOS arm64 공식 바이너리를 SHA-256으로 확인해 `load/.bin/k6`(gitignore)에 둔다. brew의 k6는 쓰지 않는다.
   - E1 실행: `load/.bin/k6 run -q -e BASE_URL=<url> -e QUERY_TYPE=<pk|sleep10|sleep50> -e RATE=<건/초> -e DURATION_S=<초> -e PRE_VUS=<n> -e MAX_VUS=<n> -e REQ_TIMEOUT_S=<초> -e SEED=<n> -e PING_RATE=<건/초> -e PING_PRE_S=<초> -e SUMMARY_OUT=<json 경로> load/e1.js`. 인자는 모두 필수이며 빠지면 종료 코드 107로 실패한다. 요청별 원자료가 필요하면 `--out csv=<경로>`를 더한다.
   - 과부하 실행 뒤에는 클라이언트가 끊은 요청을 서버가 계속 처리하므로, 다음 실행 전에 `/actuator/prometheus`의 `hikaricp_connections_pending`과 `active`가 0인지 본다.
+- 맥북 Prometheus와 Grafana (2026-11-05 확인, 작업 디렉터리 저장소 루트)
+  - 기동: `SCRAPE_TARGET=<host:port> docker compose -f infra/compose.monitoring.yaml up -d`. 맥북의 로컬 앱은 `host.docker.internal:8080`이다. `SCRAPE_TARGET`이 없으면 기동이 실패한다. 이 Compose는 앱과 DB를 띄우지 않으므로 앱은 먼저 따로 띄운다.
+  - 확인: Prometheus는 `http://localhost:9090/api/v1/targets`에서 `health`가 `up`인지, Grafana는 `http://localhost:3000`의 "HikariCP 풀" 대시보드를 본다. 둘 다 맥북의 127.0.0.1에만 연다.
+  - 종료: `SCRAPE_TARGET=<host:port> docker compose -f infra/compose.monitoring.yaml down -v`. 변수가 없으면 `down`도 실패하므로 같은 값을 준다.
+  - 스크랩 주기 5초, 타임아웃 3초는 고정값이다(2026-11-05 결정). Pi 앱을 수집하려면 `SCRAPE_TARGET=<Pi 주소>:8080`으로 바꾸기만 하면 된다(#4-5).
 - Pi 배포 명령은 아직 기록되지 않았다(#4).
 - Pi나 다른 원격 호스트에서 명령을 실행해야 할 때는 실행하기 전에 사용자에게 알린다. 이 호스트들은 측정 환경이어서 의도하지 않은 변경이 실험 결과에 영향을 줄 수 있기 때문이다.
 ## 7. 커밋 규칙

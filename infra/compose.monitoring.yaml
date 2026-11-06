@@ -1,0 +1,50 @@
+# 맥북에서 Pi(또는 로컬) 앱의 풀 지표를 수집하고 보는 Compose 파일이다. 측정 환경인 Pi에는 올리지 않는다(RESEARCH.md 6.2).
+# 앱과 DB는 compose.yaml이 맡고, 이 파일은 수집 대상 주소만 바꿔 로컬 앱(#4-3)과 Pi 앱(#4-5)에 그대로 쓴다.
+name: poolsweep-monitoring
+
+services:
+  prometheus:
+    # 태그는 다시 빌드되므로 다중 아키텍처 digest까지 고정한다(RESEARCH.md 6.1).
+    image: prom/prometheus:v3.15.1@sha256:fa3302279710be2f21a8301ec17a8b4f2301fd829bd113839b3b6b02b6f191a2
+    configs:
+      - source: prometheus_config
+        target: /etc/prometheus/prometheus.yml
+    ports:
+      # 맥북 밖으로 열지 않는다.
+      - "127.0.0.1:9090:9090"
+
+  grafana:
+    image: grafana/grafana:13.3.0@sha256:488984b716c0862639f91a698adbe2862677a5a07bad42da5f03f3030883b205
+    environment:
+      # 맥북 로컬에서만 보는 실험용이므로 로그인 없이 읽기 전용으로 연다. 외부 통신은 끈다.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - prometheus
+
+configs:
+  # Prometheus 설정 파일은 환경변수를 읽지 못하고 v3.15.1에는 치환 기능도 없어서(--enable-feature=expand-environment-variables는
+  # "Unknown option"으로 무시된다), Compose가 content의 ${...}를 치환하게 한다.
+  prometheus_config:
+    content: |
+      # 스크랩 주기는 실험 변수가 아니라 고정값이다(2026-11-05 연구자 결정). 정한 뒤에는 실험 중 바꾸지 않는다.
+      # 5초는 짧은 k6 실행에서도 hikaricp_connections_active의 변화를 보면서, Pi 앱에는 초당 0.2건만 보내기 위한 값이다.
+      # scrape_timeout은 주기보다 짧아야 하며, 응답이 늦어도 다음 스크랩과 겹치지 않게 3초로 둔다.
+      global:
+        scrape_interval: 5s
+        scrape_timeout: 3s
+      scrape_configs:
+        - job_name: poolsweep-app
+          # Actuator의 경로는 Prometheus 기본값(/metrics)과 다르다.
+          metrics_path: /actuator/prometheus
+          static_configs:
+            # 수집 대상 주소는 host:port 형식이다. 값이 없으면 기본값으로 뜨지 않고 기동이 실패하게 한다.
+            # 맥북의 로컬 앱은 host.docker.internal:8080, Pi 앱은 <Pi 주소>:8080이다.
+            - targets: ["${SCRAPE_TARGET:?SCRAPE_TARGET(host:port)을 지정해야 한다}"]

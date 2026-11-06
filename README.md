@@ -2,7 +2,7 @@
 
 Spring Boot(Kotlin)에서 요청 처리 모델(플랫폼 스레드 / 가상 스레드 / 코루틴+JDBC)에 따라 HikariCP 풀 크기의 최적점이 어떻게 달라지는지 측정하는 연구 저장소입니다. 설계와 결정은 [RESEARCH.md](RESEARCH.md)에 있습니다.
 
-이 문서는 재현 가이드입니다. 지금은 앱, 로컬 Compose(PostgreSQL, 앱 컨테이너), k6 E1(열린 모델) 스크립트까지 있으며, Pi 배포와 실행 자동화는 이후 작업에서 추가합니다.
+이 문서는 재현 가이드입니다. 지금은 앱, 로컬 Compose(PostgreSQL, 앱 컨테이너), k6 E1(열린 모델) 스크립트, 맥북 모니터링(Prometheus, Grafana)까지 있으며, Pi 배포와 실행 자동화는 이후 작업에서 추가합니다.
 
 ## 고정 버전
 
@@ -14,6 +14,8 @@ Spring Boot(Kotlin)에서 요청 처리 모델(플랫폼 스레드 / 가상 스�
 - 앱 컨테이너의 JRE: `eclipse-temurin:21.0.12.1_1-jre-noble@sha256:cd35bb33859641c5374415826a5951845104093eaa401cbe9d3d9023444f1c13`, `eclipse-temurin:25.0.4.1_1-jre-noble@sha256:ce8543ddd3070ccbeaac2106a74c9387ddeb8d47a1c43348345715c1ef245c7f`([app/Dockerfile](app/Dockerfile)). JVM 옵션은 넣지 않습니다.
 - 확인한 Docker 환경: Docker 29.9.2, Compose v5.6.1 (맥북)
 - k6 v2.3.0 (macOS arm64 공식 바이너리, SHA-256을 [load/install-k6.sh](load/install-k6.sh)에 고정)
+- Prometheus v3.15.1: `prom/prometheus:v3.15.1@sha256:fa3302279710be2f21a8301ec17a8b4f2301fd829bd113839b3b6b02b6f191a2`
+- Grafana 13.3.0: `grafana/grafana:13.3.0@sha256:488984b716c0862639f91a698adbe2862677a5a07bad42da5f03f3030883b205`
 
 ## 로컬 PostgreSQL
 
@@ -89,6 +91,20 @@ load/.bin/k6 run -q \
 - `SEED`가 같으면 요청하는 id 순서(1~10000)가 같습니다. k번째 반복의 id는 시드와 k로만 정해집니다.
 - `SUMMARY_OUT`에는 받은 설정, 지연 분포(`query_duration`, `ping_pre_duration`, `ping_load_duration`), 실패율, 타임아웃 수, 시나리오별 `dropped_iterations`, k6 기본 지표가 JSON으로 남습니다. 요청별 원자료가 필요하면 `--out csv=<경로>`를 더합니다.
 - 과부하로 실행한 뒤에는 서버가 끊긴 요청을 한동안 계속 처리합니다. 다음 실행 전에 `/actuator/prometheus`의 `hikaricp_connections_pending`과 `hikaricp_connections_active`가 0인지 확인합니다.
+
+## 모니터링 (맥북 Prometheus와 Grafana)
+
+[infra/compose.monitoring.yaml](infra/compose.monitoring.yaml)은 앱의 `/actuator/prometheus`를 수집해서 풀 지표를 보여 줍니다. 측정 환경인 Pi에는 올리지 않고 맥북에서만 돌립니다. 앱과 DB는 띄우지 않으므로 앱은 먼저 따로 띄웁니다.
+
+```sh
+SCRAPE_TARGET=host.docker.internal:8080 docker compose -f infra/compose.monitoring.yaml up -d
+SCRAPE_TARGET=host.docker.internal:8080 docker compose -f infra/compose.monitoring.yaml down -v
+```
+
+- `SCRAPE_TARGET`은 수집 대상의 `host:port`입니다. 맥북의 로컬 앱은 `host.docker.internal:8080`이고, Pi 앱은 `<Pi 주소>:8080`입니다. 빠뜨리면 `up`과 `down`이 모두 실패합니다.
+- 스크랩 주기는 5초, 타임아웃은 3초로 고정입니다. 정한 뒤에는 실험 중 바꾸지 않습니다.
+- 확인: `curl -s localhost:9090/api/v1/targets`의 `health`가 `up`이면 수집 중입니다. Grafana는 `http://localhost:3000`의 "HikariCP 풀" 대시보드(익명 읽기 전용)에서 `hikaricp_connections_*`를 봅니다.
+- 두 포트는 맥북의 127.0.0.1에만 엽니다.
 
 ## 엔드포인트
 

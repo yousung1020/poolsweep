@@ -1,0 +1,9 @@
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    # 같은 Compose 네트워크 안의 서비스 이름으로 접근한다.
+    url: http://prometheus:9090
+    isDefault: true

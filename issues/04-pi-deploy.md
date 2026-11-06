@@ -1,6 +1,6 @@
 # #4 Pi 배포와 코어 분리
 
-- 상태: 대기
+- 상태: 진행 중
 - 선행: #3 (완료), 연구자의 Pi 방열, 전원, 유선 LAN 점검
 - 후행: #5
 - 최종 갱신: 2026-11-05
@@ -47,6 +47,8 @@
 - 2026-11-01 Q1. 앱을 Pi에 어떻게 올릴까? → 맥북에서 arm64로 빌드해 Pi로 옮긴다. 맥북 M1이 이미 arm64이고 빌드가 로컬에서 검증되어 있으며, Pi에 빌드 부하와 도구 설치를 더하지 않아 측정 환경 변경이 가장 적기 때문이다. 기록 위치: `RESEARCH.md` 6.1
 - 2026-11-01 Q2. 컨테이너 메모리 제한의 초깃값을 얼마로 할까? → 앱 1.5GB, DB 1.5GB로 한다. 4GB에서 OS 여유 약 1GB를 남기는 대칭 값이며, 최종값은 파일럿(#6)에서 확정한다. 기록 위치: `RESEARCH.md` 6.2
 - 2026-11-05 진행 순서. Pi를 쓸 수 없는 동안 무엇을 할까? → Pi 없이 확인할 수 있는 #4-3(맥북 Prometheus와 Grafana)을 먼저 진행하고, Pi 대상 확인은 #4-5로 나눈다. #4-3은 선행 단위가 없고 수집 대상 주소만 바꾸면 되며, 실행 환경이 다른 확인은 단위를 나누는 규칙(`docs/WRITING.md` 2.3)에 따른다. Pi용 Compose(`cpuset`, 메모리 제한)는 Pi에서만 검증되므로 #4-1에서 만든다. 기록 위치: 이 이슈
+- 2026-11-05 #4-3 이미지. 맥북용 Prometheus와 Grafana를 어느 버전으로 고정할까? → `prom/prometheus:v3.15.1@sha256:fa3302279710be2f21a8301ec17a8b4f2301fd829bd113839b3b6b02b6f191a2`, `grafana/grafana:13.3.0@sha256:488984b716c0862639f91a698adbe2862677a5a07bad42da5f03f3030883b205`로 한다. 둘 다 정식 릴리스 중 최신이며(Prometheus v3.16.0은 rc.4라 제외) amd64와 arm64를 포함하고, digest는 Docker Hub API가 돌려준 다중 아키텍처 매니페스트 기준이다. Grafana 13.3.0의 릴리스 날짜는 확인하지 못했다. 기록 위치: 이 이슈
+- 2026-11-05 스크랩 주기. Prometheus의 `scrape_interval`과 `scrape_timeout`은? → 5초와 3초로 고정한다. 짧은 k6 실행에서도 `hikaricp_connections_active`의 변화를 볼 수 있고, Pi 앱에는 초당 0.2건만 가는 값이다. 실험 변수가 아니라 고정값이므로 실험 중 바꾸지 않는다. 기록 위치: 이 이슈, `infra/compose.monitoring.yaml`
 
 ## 작업 단위
 
@@ -70,13 +72,13 @@
   - [ ] 확인 명령과 결과를 핸드오프에 남긴다
 
 ### #4-3 맥북 Prometheus와 Grafana (→ #4-5로 나눔)
-- 상태: 대기
+- 상태: 완료 (2026-11-05)
 - 동작: 기록된 맥북용 Compose 명령으로 기동하면 Prometheus가 맥북에서 도는 로컬 앱의 `/actuator/prometheus`를 수집하고, Grafana에서 `hikaricp_connections_*` 지표를 볼 수 있다. 수집 대상 주소는 설정으로 바꿀 수 있어야 한다.
 - 확인 방법: 맥북에서 로컬 앱을 띄우고 k6로 부하를 걸었을 때, Prometheus의 타깃 상태가 정상이고 `hikaricp_connections_active`가 바뀐다.
 - 필요한 결정: 없음. 단, 맥북용 Prometheus와 Grafana 이미지는 새 의존성이므로 시작할 때 연구자에게 먼저 묻는다(`AGENTS.md` 8장).
 - 할 일:
-  - [ ] 이미지 태그를 고정한 맥북용 Compose와 수집 설정을 만든다
-  - [ ] 명령을 `AGENTS.md` 6장과 `README.md`에 기록한다
+  - [x] 이미지 태그를 고정한 맥북용 Compose와 수집 설정을 만든다
+  - [x] 명령을 `AGENTS.md` 6장과 `README.md`에 기록한다
 
 ### #4-5 Pi 앱 수집 확인
 - 상태: 대기
@@ -116,3 +118,18 @@
   - [infra/compose.yaml](../infra/compose.yaml) 1행 주석은 `compose.pi.yaml`이 `cpuset`과 메모리 제한만 덮어쓴다고 한다. Q1에 따라 Pi에는 미리 빌드한 이미지를 옮기므로, 앱 서비스의 `build:`를 대신할 `image:`도 필요해진다. #4-1에서 Pi용 Compose를 만들 때 함께 정한다. 이미지 전달 방식(파일 전송 또는 레지스트리)도 #4-1에서 정한다.
   - 푸시 여부는 로컬의 `origin/main` 추적 정보로만 보았고 fetch는 하지 않았다.
 - 다음 세션 첫 작업: 위 문서 갱신의 커밋을 연구자와 정한 뒤(제안 메시지: `docs: #4-3 선행 진행과 #4-5 분할, Q1·Q2 설계 기록 반영`), #4-3을 시작한다. 시작할 때 이슈 #4의 상태를 `진행 중`으로 바꾸고 Prometheus와 Grafana 이미지 후보를 먼저 묻는다.
+
+### 핸드오프 (2026-11-05, #4-3)
+- 한 일: 맥북용 Prometheus와 Grafana를 만들고 로컬 앱 수집을 확인했다.
+  - [infra/compose.monitoring.yaml](../infra/compose.monitoring.yaml): Prometheus v3.15.1과 Grafana 13.3.0을 digest까지 고정해서 띄운다.
+    - 역할과 기능: `SCRAPE_TARGET`(host:port)의 `/actuator/prometheus`를 5초마다 수집하고, 앱과 DB는 띄우지 않는다. `SCRAPE_TARGET`이 없으면 기동이 실패한다.
+    - 쓰이는 곳: 이번 확인에서 로컬 앱을 수집했다. Pi 앱 수집(#4-5)은 미연결이다.
+    - 없으면 안 되는 이유: 이 파일이 없으면 부하 중 `hikaricp_connections_active`가 시간에 따라 쌓이지 않아서 풀이 포화되는 시점을 볼 수 없다.
+    - 전/후 비교: 이전에는 모니터링 구성이 없었고, 이후에는 명령 한 줄로 Prometheus와 Grafana가 뜬다.
+    - 처음에는 Prometheus 설정을 별도 파일로 두려 했다. 그러나 v3.15.1이 `--enable-feature=expand-environment-variables`를 "Unknown option"으로 무시해서 `${SCRAPE_TARGET}`가 치환되지 않았다. 그래서 설정을 Compose의 `configs.content`에 인라인했다.
+  - [infra/grafana/](../infra/grafana/)에서 데이터소스를 프로비저닝하고, active, idle, pending, max를 보여 주는 "HikariCP 풀" 대시보드를 등록했다.
+  - `AGENTS.md` 6장과 `README.md`에 명령과 고정 버전을 기록했다.
+  - 확인은 로컬 맥북에서 앱 `platform` 프로파일, `POOL_SIZE=10`, JDK 21로 했다. Prometheus 타깃은 `up`이었다. k6 `sleep50`을 `RATE=100`으로 25초 걸었을 때 `hikaricp_connections_active`는 5초 간격 표본에서 5가 다섯 번 나온 뒤 0이 되었다. Grafana 대시보드 등록과 Grafana를 거친 Prometheus 질의도 응답했다. 이 값은 개발 중 숫자라서 `results/`에 넣지 않았다.
+- 남은 일: #4-1, #4-2, #4-4, #4-5. 모두 Pi가 필요하다.
+- 막힌 점 / 확인 필요: Pi가 아직 없다. 스크랩이 Pi 앱 부하에 미치는 영향은 측정하지 않았다. Grafana 대시보드를 브라우저로 직접 보지는 않았고 API로만 확인했다.
+- 다음 세션 첫 작업: Pi를 쓸 수 있으면 #4-1을 시작한다(연구자가 방열, 전원, 유선 LAN을 점검하고 접속 정보를 알려 준다).

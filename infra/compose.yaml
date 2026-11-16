@@ -1,4 +1,4 @@
-# 맥북과 Pi가 함께 쓰는 기본 Compose 파일이다. Pi에서는 compose.pi.yaml이 cpuset과 메모리 제한만 덮어쓴다(#4).
+# 맥북과 Pi가 함께 쓰는 기본 Compose 파일이다. Pi에서는 compose.pi.yaml이 앱 이미지, 포트, 메모리 제한을 덮어쓴다(#4-1). cpuset은 #4-2에서 더한다.
 # DB 정의를 한 곳에 두어 로컬에서 확인한 설정이 Pi에서도 그대로 쓰이게 한다.
 name: poolsweep
 

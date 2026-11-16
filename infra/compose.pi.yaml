@@ -1,0 +1,24 @@
+# Pi에서 compose.yaml 위에 겹쳐 쓰는 파일이다. 맥북에서 만든 arm64 이미지를 쓰고, 포트와 메모리 제한을 Pi에 맞춘다(#4-1).
+# 사용: sudo env APP_IMAGE=... SPRING_PROFILES_ACTIVE=... POOL_SIZE=... docker compose -f compose.yaml -f compose.pi.yaml up -d --wait
+# cpuset(코어 분리)은 #4-2에서 이 파일에 더한다. 지금은 코어를 나누지 않는다.
+services:
+  db:
+    # Pi에서는 DB 포트를 호스트에 열지 않는다. 앱은 Compose 네트워크로 접속하므로 필요가 없고,
+    # 기본 계정이 약한 DB를 LAN에 노출하지 않으려는 것이다(RESEARCH.md 5장).
+    # 병합 규칙상 목록은 합쳐지므로 !reset으로 기본 파일의 ports를 비운다.
+    ports: !reset []
+    # Q2에서 정한 초깃값이다(RESEARCH.md 6.2). 단, Pi 커널이 memory cgroup을 끈 상태(cgroup_disable=memory)라
+    # 재부팅해 켜기 전에는 적용되지 않는다. 2026-11-16 결정으로 #4-1에서는 적용 없이 배포만 확인한다.
+    mem_limit: 1536m
+
+  app:
+    # 맥북에서 만들어 옮긴 이미지를 쓴다(Q1). Pi에는 앱 소스와 빌드 도구가 없으므로 기본 파일의 build를 지운다.
+    # 태그는 커밋 해시와 JDK로 구분해 결과를 코드로 추적한다. latest는 쓰지 않으므로 빠뜨리면 기동이 실패하게 한다.
+    build: !reset null
+    image: ${APP_IMAGE:?APP_IMAGE에 poolsweep-app:<커밋 해시>-jdk<21|25> 형식의 이미지를 지정한다}
+    # 연구자의 Pi에서는 8080을 사용할 수 없어서 호스트 쪽만 9080으로 바꾼다(2026-11-16 결정).
+    # 컨테이너 안의 포트는 그대로 8080이라 앱 설정과 세 프로파일은 달라지지 않는다.
+    ports: !override
+      - "9080:8080"
+    # db와 같은 초깃값이며 같은 이유로 지금은 적용되지 않는다.
+    mem_limit: 1536m

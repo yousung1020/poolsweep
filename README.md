@@ -102,7 +102,7 @@ SCRAPE_TARGET=host.docker.internal:8080 docker compose -f infra/compose.monitori
 SCRAPE_TARGET=host.docker.internal:8080 docker compose -f infra/compose.monitoring.yaml down -v
 ```
 
-- `SCRAPE_TARGET`은 수집 대상의 `host:port`입니다. 맥북의 로컬 앱은 `host.docker.internal:8080`이고, Pi 앱은 `<Pi 주소>:8080`입니다. 빠뜨리면 `up`과 `down`이 모두 실패합니다.
+- `SCRAPE_TARGET`은 수집 대상의 `host:port`입니다. 맥북의 로컬 앱은 `host.docker.internal:8080`이고, Pi 앱은 `<Pi 주소>:9080`입니다(Pi에서는 호스트 포트만 9080이고 컨테이너 안은 8080입니다). 빠뜨리면 `up`과 `down`이 모두 실패합니다.
 - 스크랩 주기는 5초, 타임아웃은 3초로 고정입니다. 정한 뒤에는 실험 중 바꾸지 않습니다.
 - 확인: `curl -s localhost:9090/api/v1/targets`의 `health`가 `up`이면 수집 중입니다. Grafana는 `http://localhost:3000`의 "HikariCP 풀" 대시보드(익명 읽기 전용)에서 `hikaricp_connections_*`를 봅니다.
 - 두 포트는 맥북의 127.0.0.1에만 엽니다.

@@ -46,5 +46,5 @@ configs:
           metrics_path: /actuator/prometheus
           static_configs:
             # 수집 대상 주소는 host:port 형식이다. 값이 없으면 기본값으로 뜨지 않고 기동이 실패하게 한다.
-            # 맥북의 로컬 앱은 host.docker.internal:8080, Pi 앱은 <Pi 주소>:8080이다.
+            # 맥북의 로컬 앱은 host.docker.internal:8080, Pi 앱은 <Pi 주소>:9080이다(Pi는 호스트 포트만 9080이다, #4-1).
             - targets: ["${SCRAPE_TARGET:?SCRAPE_TARGET(host:port)을 지정해야 한다}"]

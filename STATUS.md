@@ -12,32 +12,33 @@ Spring Boot(Kotlin)에서 요청 처리 모델(플랫폼 스레드풀 / 가상 �
 
 ## 지금 단계
 
-**#3(로컬 Compose + k6)과 #4-3(맥북 Prometheus와 Grafana) 완료. #4(Pi 배포와 코어 분리)는 진행 중이며, 남은 단위(#4-1, #4-2, #4-4, #4-5)는 모두 Pi가 필요하다.**
+**#3(로컬 Compose + k6)과 #4-3(맥북 Prometheus와 Grafana) 완료. #4(Pi 배포와 코어 분리)는 진행 중이며, #4-1(Pi에 앱과 PostgreSQL 배포)을 하는 중이다.**
 
-- 연구 주제, RQ, 가설은 확정되었다(`RESEARCH.md` v0.10).
-- #4의 Q1(맥북에서 arm64로 빌드해 Pi로 옮긴다)과 Q2(메모리 제한 초깃값은 앱 1.5GB, DB 1.5GB)는 결정되었다.
-- #4-3: Prometheus v3.15.1과 Grafana 13.3.0을 digest로 고정했고, 스크랩 주기 5초와 타임아웃 3초는 고정값이다. 로컬 앱 수집을 확인했다(`infra/compose.monitoring.yaml`).
-- k6 요청 타임아웃(10초), `maxVUs`(도착률 × 11 × 1.2), 사전 할당 규칙(`preAllocatedVUs = maxVUs`)이 확정되었다.
-- E2(닫힌 모델) 스크립트는 결정 1 뒤의 본 실험 준비 이슈에서 만든다(`RESEARCH.md` 6.3).
-- 저장소: 최신 커밋은 `a62d5f5`이고, 이 갱신(`STATUS.md`, `issues/04-pi-deploy.md`)은 미커밋이다. 푸시 여부는 확인하지 않았다. 작업 트리에 `.DS_Store`와 `app/bin/`이 미추적으로 남아 있다.
+- 연구 주제, RQ, 가설은 확정되었다(`RESEARCH.md` v0.12).
+- #4-1에서 끝낸 것: Pi에 Docker 29.9.2와 Compose v5.6.1을 고정 설치했고, Pi용 Compose(`infra/compose.pi.yaml`)를 작성했다(맥북에서 `config`만 확인).
+- #4-1에서 남은 것: arm64 앱 이미지 빌드(JDK 21, 25), Pi로 전송과 기동, 맥북에서 `/ping`, `/query`, `/actuator/info` 확인, 명령 기록.
+- Pi 결정: 호스트 포트는 9080(컨테이너 안은 8080), 이미지는 `docker save` 파일 전송, 스왑 2GiB 유지, `sudo`로 docker 실행(`issues/04-pi-deploy.md` 결정 기록).
+- **Pi의 memory cgroup이 꺼져 있어 컨테이너 메모리 제한이 적용되지 않는다.** 연구자가 재부팅을 하지 않기로 해서 #4-1은 제한 없이 확인하고, 적용 방법은 Q5로 남겼다(파일럿 #6 전에 해결).
+- k6 요청 타임아웃(10초), `maxVUs`, 사전 할당 규칙과 E2 스크립트 시점은 `RESEARCH.md` 6.3과 6.5를 따른다.
+- 저장소: 최신 커밋은 `afe7411`이다. 푸시 여부는 확인하지 않았다. `AGENTS.md`, `README.md`, `RESEARCH.md`, `STATUS.md`, `infra/compose.yaml`, `issues/04-pi-deploy.md`의 변경과 `infra/compose.pi.yaml`(신규)이 미커밋이다. `.DS_Store`와 `app/bin/`은 미추적이다.
 - 이슈는 작업 단위(`#4-1` 등)로 나뉘어 있고, 한 채팅에서는 단위 하나만 한다. 구조는 `docs/WRITING.md`를 따른다.
 
 다음 결정 지점: **결정 1** (파일럿에서 풀 크기에 따른 의미 있는 패턴이 보이는가). 논문화는 그 뒤에 판단한다.
 
 ## 바로 다음 채팅에서 할 일
 
-### Pi를 쓸 수 있게 되면 (#4-1, [issues/04-pi-deploy.md](issues/04-pi-deploy.md))
-- 연구자가 Pi 방열(히트싱크/팬), 정품 전원, 유선 LAN을 점검하고 접속 정보(SSH 호스트명/IP, 계정)를 알려 준다. 이후 #4-1, #4-2, #4-4, #4-5 순으로 진행한다. Pi에서 명령을 실행하기 전에는 연구자에게 먼저 알린다(`AGENTS.md` 6장).
-- #4-1에서 정할 것: Pi용 Compose(`compose.pi.yaml`)의 `image:` 사용과 이미지 전달 방식(파일 전송 또는 레지스트리).
-### Pi가 준비되기 전
-- 연구자가 Pi가 준비될 때까지 #4를 중단하기로 했다(2026-11-06). 그 사이에는 새 단위를 시작하지 않는다.
+### #4-1 이어서 ([issues/04-pi-deploy.md](issues/04-pi-deploy.md))
+- 시작 전에 연구자가 할 일: 맥북의 Docker Desktop을 켠다. Pi에서 `cat /boot/firmware/cmdline.txt; ls ~/cmdline.txt.bak`를 실행해 결과를 알린다(`cgroup_enable=memory`가 이미 더해졌는지 확인하려는 것이다).
+- 에이전트가 할 일: 이미지 빌드와 태그(`poolsweep-app:<해시>-jdk<21|25>`), 전송 명령 제시, Pi 기동, 맥북에서 확인. Pi 명령은 실행 전에 알리고 승인받는다(`AGENTS.md` 6장). 접속과 비밀번호는 연구자가 직접 입력한다.
+- 시작 전 커밋 정리를 연구자와 정한다. 이미지 태그의 해시가 커밋마다 바뀌기 때문이다.
 ### 새 채팅에서 입력할 프롬프트
 ```
-STATUS.md를 읽고 #4-1을 진행해줘.
+STATUS.md를 읽고 #4-1을 이어서 진행해줘.
 ```
 
 ## 열린 항목
 
+- Q5(이슈 #4): Pi memory cgroup을 켜는 방법과 시점. `cgroup_enable=memory`가 `cgroup_disable=memory`보다 우선하는지는 확인 필요
 - 선행연구 직접 확인: 구글 스칼라 키워드 검색, Radovan(2024)과 Pollub 코루틴 논문 전문. 논문화 결정 전에 끝낸다.
 - 지속 가능 처리량 임계값(에러율, p99 상한, 단계 길이), 도착률 스윕 범위: 파일럿 후 확정
 - 앱 2코어에서 CPU 한계가 풀 한계보다 먼저 오는지: 파일럿에서 확인

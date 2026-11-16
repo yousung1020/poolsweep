@@ -13,6 +13,7 @@ Spring Boot(Kotlin)에서 요청 처리 모델(플랫폼 스레드 / 가상 스�
 - PostgreSQL 18.6: `postgres:18.6-bookworm@sha256:5c4783a8cc3f0074912164f94dfa1be4e043438f0f707cf968d7af9a0d31a2c8`(태그와 다중 아키텍처 digest를 함께 고정). 설정은 이미지 기본값입니다.
 - 앱 컨테이너의 JRE: `eclipse-temurin:21.0.12.1_1-jre-noble@sha256:cd35bb33859641c5374415826a5951845104093eaa401cbe9d3d9023444f1c13`, `eclipse-temurin:25.0.4.1_1-jre-noble@sha256:ce8543ddd3070ccbeaac2106a74c9387ddeb8d47a1c43348345715c1ef245c7f`([app/Dockerfile](app/Dockerfile)). JVM 옵션은 넣지 않습니다.
 - 확인한 Docker 환경: Docker 29.9.2, Compose v5.6.1 (맥북)
+- Pi 환경(2026-11-16 확인): Debian 13(trixie) arm64, 커널 6.18.39+rpt-rpi-v8, 메모리 3.7GiB, 스왑 2GiB(루트는 microSD). Docker는 공식 apt 저장소에서 `docker-ce`와 `docker-ce-cli` 5:29.9.2-1~debian.13~trixie, `containerd.io` 2.4.2-4~debian.13~trixie, `docker-compose-plugin` 5.6.1-1~debian.13~trixie를 설치하고 `apt-mark hold`로 고정했습니다. Pi에서는 `sudo docker`로 실행합니다. 배포 명령은 #4-1이 끝나면 추가합니다.
 - k6 v2.3.0 (macOS arm64 공식 바이너리, SHA-256을 [load/install-k6.sh](load/install-k6.sh)에 고정)
 - Prometheus v3.15.1: `prom/prometheus:v3.15.1@sha256:fa3302279710be2f21a8301ec17a8b4f2301fd829bd113839b3b6b02b6f191a2`
 - Grafana 13.3.0: `grafana/grafana:13.3.0@sha256:488984b716c0862639f91a698adbe2862677a5a07bad42da5f03f3030883b205`

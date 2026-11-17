@@ -29,6 +29,7 @@ docker compose -f infra/compose.yaml down -v           # 종료. 볼륨까지 �
 
 - 접속 정보는 `jdbc:postgresql://localhost:5432/poolsweep`, 계정과 암호는 `poolsweep`입니다. LAN 안에서만 쓰는 실험용 계정입니다.
 - 스키마와 시드는 [infra/db/init.sql](infra/db/init.sql)이 처음 기동할 때 만듭니다. 앱은 스키마를 만들지 않습니다.
+- 확인: `docker compose -f infra/compose.yaml exec -T db psql -U poolsweep -d poolsweep -tAc "SELECT count(*) FROM item"`가 10000이면 시드가 적재된 것입니다.
 
 ## 앱 빌드와 실행
 
@@ -65,7 +66,9 @@ docker compose -f infra/compose.yaml down -v
 
 - `JDK`는 `21` 또는 `25`입니다. 빠뜨리면 이미지 빌드가 실패합니다.
 - `SPRING_PROFILES_ACTIVE`, `POOL_SIZE`, `IO_PARALLELISM`은 위 "앱 빌드와 실행"과 같습니다. 셸에 없는 값은 컨테이너에도 넘기지 않아서, 프로파일이나 `POOL_SIZE`를 빠뜨리면 앱이 기동하지 못합니다.
-- 앱이 뜨는 데 몇 초가 걸립니다. `/ping`이 응답한 뒤 `/actuator/info`로 적용된 값을 확인합니다.
+- 앱이 뜨는 데 몇 초가 걸립니다. `/ping`이 응답한 뒤 `/actuator/info`의 `processingModel`, `poolSize`, `javaVersion`으로 적용된 값을 확인합니다.
+- 앱만 바꿔 띄울 때는 `docker compose -f infra/compose.yaml stop app` 뒤에 위 기동 명령을 다시 실행합니다. 종료는 `down -v`입니다.
+- zsh에서 `C="docker compose ..."; $C up`처럼 명령을 변수에 담으면 공백이 나뉘지 않아 실패합니다. 함수나 전체 명령을 사용합니다.
 
 ## 부하 생성 (k6 E1)
 
@@ -113,3 +116,20 @@ SCRAPE_TARGET=host.docker.internal:8080 docker compose -f infra/compose.monitori
 - `GET /ping`: DB를 호출하지 않는 기준선입니다.
 - `GET /actuator/info`: 실제로 적용된 실험 설정(처리 모델, 풀 크기, IO 병렬도, 가상 스레드 여부, JDK 등)입니다.
 - `GET /actuator/prometheus`: HikariCP 풀 지표(`hikaricp_connections_*`) 등입니다.
+
+## 저장소 구조
+
+```
+AGENTS.md        작업 규칙
+STATUS.md        현재 상태와 다음 작업
+RESEARCH.md      설계와 결정
+LAB_NOTEBOOK.md  실험 기록
+README.md        재현 가이드 (이 파일)
+issues/          작업 단위(이슈)와 핸드오프
+docs/            문서 작성 규칙(WRITING.md), 설명 문서(explain/)
+app/             Kotlin Spring Boot 앱 (프로파일: platform / virtual / coroutine)
+infra/           Compose 파일 (Pi용, 맥북용), DB 초기화
+load/            k6 시나리오 (E1: 열린 모델, E2: 닫힌 모델)
+results/         원자료 CSV (수정과 삭제 금지)
+analysis/        분석 스크립트와 그래프
+```

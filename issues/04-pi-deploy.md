@@ -15,7 +15,7 @@
 - Pi용 Compose로 앱(코어 0-1)과 PostgreSQL(코어 2-3)이 기동하고, 각 컨테이너가 실제로 지정한 코어에서만 도는 것이 확인되어 있다.
 - 맥북의 Prometheus가 Pi 앱의 `/actuator/prometheus`를 수집하고 Grafana에서 풀 지표를 볼 수 있다.
 - Pi의 온도와 스로틀링을 기록하는 방법이 정해져 있다.
-- Pi 배포와 실행 명령이 `AGENTS.md` 6장과 `README.md`에 기록되어 있다.
+- Pi 배포와 실행 명령이 `README.md`에 기록되어 있다.
 
 ## 작업 맥락
 
@@ -72,7 +72,7 @@
   - [ ] 맥북에서 문서 갱신 커밋(2026-11-18) 기준 arm64 이미지를 JDK 21과 25로 빌드해 태그한다 (Docker Desktop을 켠 뒤 진행)
   - [ ] 이미지와 Compose 파일, `infra/db/init.sql`을 Pi로 전송하고 기동한다
   - [ ] 맥북에서 세 프로파일의 `/ping`, `/query`, `/actuator/info`를 확인한다. `availableProcessors`는 기록만 한다.
-  - [ ] 배포, 기동, 종료 명령을 `AGENTS.md` 6장과 `README.md`에 기록한다
+  - [ ] 배포, 기동, 종료 명령을 `README.md`에 기록한다
 
 ### #4-2 코어 분리
 - 상태: 대기
@@ -109,7 +109,7 @@
 - 필요한 결정: Q4
 - 할 일:
   - [ ] Pi에서 명령을 실행하기 전에 연구자에게 알린다
-  - [ ] 기록 방법을 만들고 `AGENTS.md` 6장과 `README.md`에 기록한다
+  - [ ] 기록 방법을 만들고 `README.md`에 기록한다
 
 ## 결과
 

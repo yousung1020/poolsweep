@@ -35,7 +35,7 @@
 ### 관련 파일과 명령
 - [infra/db/init.sql](../infra/db/init.sql): Pi의 PostgreSQL도 같은 시드를 쓴다.
 - #3에서 만든 로컬 Compose와 명령(`AGENTS.md` 6장)을 바탕으로 한다.
-- [infra/compose.monitoring.yaml](../infra/compose.monitoring.yaml): 맥북용 Prometheus와 Grafana이며 #4-3에서 만들었다. - [infra/compose.pi.yaml](../infra/compose.pi.yaml): Pi용 덮어쓰기 파일이며 #4-1에서 만들었다(미커밋, Pi에서는 아직 실행하지 않았다). `cpuset`은 #4-2에서 더한다.
+- [infra/compose.monitoring.yaml](../infra/compose.monitoring.yaml): 맥북용 Prometheus와 Grafana이며 #4-3에서 만들었다. - [infra/compose.pi.yaml](../infra/compose.pi.yaml): Pi용 덮어쓰기 파일이며 #4-1에서 만들었다(커밋 7735b61, Pi에서는 아직 실행하지 않았다). `cpuset`은 #4-2에서 더한다.
 
 ## 열린 질문
 
@@ -69,7 +69,7 @@
   - [ ] Pi에서 명령을 실행하기 전에 연구자에게 알린다 (`AGENTS.md` 6장). 매 명령에 적용한다.
   - [x] Pi에 Docker와 Compose를 고정 버전으로 설치한다 (2026-11-16, 결정 기록 참고)
   - [x] arm64 이미지와 메모리 제한을 넣은 Pi용 Compose를 만든다 (`infra/compose.pi.yaml`, 맥북에서 `config`만 확인)
-  - [ ] 맥북에서 `afe7411` 기준 arm64 이미지를 JDK 21과 25로 빌드해 태그한다 (Docker Desktop이 꺼져 있어 못 했다)
+  - [ ] 맥북에서 문서 갱신 커밋(2026-11-18) 기준 arm64 이미지를 JDK 21과 25로 빌드해 태그한다 (Docker Desktop을 켠 뒤 진행)
   - [ ] 이미지와 Compose 파일, `infra/db/init.sql`을 Pi로 전송하고 기동한다
   - [ ] 맥북에서 세 프로파일의 `/ping`, `/query`, `/actuator/info`를 확인한다. `availableProcessors`는 기록만 한다.
   - [ ] 배포, 기동, 종료 명령을 `AGENTS.md` 6장과 `README.md`에 기록한다
@@ -183,3 +183,12 @@
   - 연구자가 8080을 쓸 수 없는 이유를 밝히지 않았다.
   - 푸시 여부는 확인하지 않았다. 작업 트리에 `AGENTS.md`, `STATUS.md`, `README.md`, `RESEARCH.md`, `infra/compose.yaml`, 이 이슈 파일의 변경과 `infra/compose.pi.yaml`(신규), `.DS_Store`, `app/bin/`이 미커밋이다.
 - 다음 세션 첫 작업: 연구자가 맥북의 Docker Desktop을 켠 뒤 `cmdline.txt` 상태를 알려 준다. 그다음 `git rev-parse --short HEAD`로 태그 해시를 정하고(지금은 `afe7411`이지만 커밋하면 바뀐다) `docker build --platform linux/arm64 --build-arg JDK=<21|25> -t poolsweep-app:<해시>-jdk<JDK> app`으로 이미지를 만든 뒤, `docker save`로 묶어 Pi에 전송하는 명령을 연구자에게 먼저 알리고 승인받아 진행한다.
+
+### 핸드오프 (2026-11-18, #4-1 정정)
+- 한 일: 앞선 핸드오프의 낡은 상태를 바로잡았다. 이 절 위의 서술은 고치지 않고 남긴다.
+  - [infra/compose.pi.yaml](../infra/compose.pi.yaml)과 `infra/compose.yaml`, `AGENTS.md`, `README.md`, `RESEARCH.md` 등의 변경은 모두 커밋되었다(`7735b61`, `8c9ae0b`, `8fe6a56`, `f4b14b1`). 푸시도 끝나 `main`과 `origin/main`이 같았다(`f4b14b1` 시점).
+  - `docs/explain/`에 설명 문서 여섯 개를 더했다. Pi 앱 수집 포트는 9080으로 맞췄다.
+  - 연구자가 맥북의 Docker Desktop을 켰다고 알렸다. 이미지 태그 해시는 이 정정 커밋의 해시로 정한다.
+- 남은 일: 앞선 핸드오프와 같다(이미지 빌드, 전송, 기동, 확인, 명령 기록). 전송 대상에는 이미지 외에 `infra/compose.yaml`, `infra/compose.pi.yaml`, `infra/db/init.sql`도 있다.
+- 막힌 점 / 확인 필요: `cmdline.txt` 상태는 아직 모른다. 나머지는 앞선 핸드오프와 같다.
+- 다음 세션 첫 작업: `git rev-parse --short HEAD`로 해시를 정해 두 이미지를 빌드하고, `docker save` 전송 명령을 연구자에게 먼저 알린다.

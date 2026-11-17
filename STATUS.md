@@ -4,7 +4,7 @@
 > 약 60줄을 넘기지 않는다. 이력은 git과 `issues/`에 있다.
 > 이 문서와 `git log`, `issues/`의 상태가 다르면 작업 전에 알린다.
 
-최종 갱신: 2026-11-16
+최종 갱신: 2026-11-18
 
 ## 프로젝트
 
@@ -20,7 +20,7 @@ Spring Boot(Kotlin)에서 요청 처리 모델(플랫폼 스레드풀 / 가상 �
 - Pi 결정: 호스트 포트는 9080(컨테이너 안은 8080), 이미지는 `docker save` 파일 전송, 스왑 2GiB 유지, `sudo`로 docker 실행(`issues/04-pi-deploy.md` 결정 기록).
 - **Pi의 memory cgroup이 꺼져 있어 컨테이너 메모리 제한이 적용되지 않는다.** 연구자가 재부팅을 하지 않기로 해서 #4-1은 제한 없이 확인하고, 적용 방법은 Q5로 남겼다(파일럿 #6 전에 해결).
 - k6 요청 타임아웃(10초), `maxVUs`, 사전 할당 규칙과 E2 스크립트 시점은 `RESEARCH.md` 6.3과 6.5를 따른다.
-- 저장소: 최신 커밋은 `afe7411`이다. 푸시 여부는 확인하지 않았다. `AGENTS.md`, `README.md`, `RESEARCH.md`, `STATUS.md`, `infra/compose.yaml`, `issues/04-pi-deploy.md`의 변경과 `infra/compose.pi.yaml`(신규)이 미커밋이다. `.DS_Store`와 `app/bin/`은 미추적이다.
+- 저장소: 작업 내용은 모두 커밋하고 푸시했다(`f4b14b1`까지 `origin/main`과 같다). `.DS_Store`와 `app/bin/`만 미추적이다. 설명 문서는 `docs/explain/`에 있다.
 - 이슈는 작업 단위(`#4-1` 등)로 나뉘어 있고, 한 채팅에서는 단위 하나만 한다. 구조는 `docs/WRITING.md`를 따른다.
 
 다음 결정 지점: **결정 1** (파일럿에서 풀 크기에 따른 의미 있는 패턴이 보이는가). 논문화는 그 뒤에 판단한다.
@@ -28,9 +28,9 @@ Spring Boot(Kotlin)에서 요청 처리 모델(플랫폼 스레드풀 / 가상 �
 ## 바로 다음 채팅에서 할 일
 
 ### #4-1 이어서 ([issues/04-pi-deploy.md](issues/04-pi-deploy.md))
-- 시작 전에 연구자가 할 일: 맥북의 Docker Desktop을 켠다. Pi에서 `cat /boot/firmware/cmdline.txt; ls ~/cmdline.txt.bak`를 실행해 결과를 알린다(`cgroup_enable=memory`가 이미 더해졌는지 확인하려는 것이다).
+- 시작 전에 연구자가 할 일: 맥북의 Docker Desktop을 켠다(2026-11-18에 켰다고 알림). Pi에서 `cat /boot/firmware/cmdline.txt; ls ~/cmdline.txt.bak`를 실행해 결과를 알린다(`cgroup_enable=memory`가 이미 더해졌는지 확인하려는 것이다).
 - 에이전트가 할 일: 이미지 빌드와 태그(`poolsweep-app:<해시>-jdk<21|25>`), 전송 명령 제시, Pi 기동, 맥북에서 확인. Pi 명령은 실행 전에 알리고 승인받는다(`AGENTS.md` 6장). 접속과 비밀번호는 연구자가 직접 입력한다.
-- 시작 전 커밋 정리를 연구자와 정한다. 이미지 태그의 해시가 커밋마다 바뀌기 때문이다.
+- 이미지 태그의 해시는 문서 정정 커밋(2026-11-18)의 해시로 정한다. 이 커밋 뒤에는 앱과 인프라 파일을 바꾸지 않는다.
 ### 새 채팅에서 입력할 프롬프트
 ```
 STATUS.md를 읽고 #4-1을 이어서 진행해줘.

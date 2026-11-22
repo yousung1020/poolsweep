@@ -4,7 +4,7 @@
 > 약 60줄을 넘기지 않는다. 이력은 git과 `issues/`에 있다.
 > 이 문서와 `git log`, `issues/`의 상태가 다르면 작업 전에 알린다.
 
-최종 갱신: 2026-11-18
+최종 갱신: 2026-11-22
 
 ## 프로젝트
 
@@ -15,8 +15,8 @@ Spring Boot(Kotlin)에서 요청 처리 모델(플랫폼 스레드풀 / 가상 �
 **#3(로컬 Compose + k6)과 #4-3(맥북 Prometheus와 Grafana) 완료. #4(Pi 배포와 코어 분리)는 진행 중이며, #4-1(Pi에 앱과 PostgreSQL 배포)을 하는 중이다.**
 
 - 연구 주제, RQ, 가설은 확정되었다(`RESEARCH.md` v0.12).
-- #4-1에서 끝낸 것: Pi에 Docker 29.9.2와 Compose v5.6.1을 고정 설치했고, Pi용 Compose(`infra/compose.pi.yaml`)를 작성했다(맥북에서 `config`만 확인).
-- #4-1에서 남은 것: arm64 앱 이미지 빌드(JDK 21, 25), Pi로 전송과 기동, 맥북에서 `/ping`, `/query`, `/actuator/info` 확인, 명령 기록.
+- #4-1에서 끝낸 것: Pi에 Docker와 Compose를 고정 설치했고, arm64 이미지(커밋 `708639c`, JDK 21과 25)를 전송해 platform 프로파일로 기동했다. 맥북에서 `/ping`, `/query`, `/actuator/info`가 응답했고 명령은 `README.md`의 "Pi 배포"에 기록했다.
+- #4-1에서 남은 것: virtual과 coroutine 프로파일 확인, `tomcatMaxThreads` 기본값(대체값 200) 확인.
 - Pi 결정: 호스트 포트는 9080(컨테이너 안은 8080), 이미지는 `docker save` 파일 전송, 스왑 2GiB 유지, `sudo`로 docker 실행(`issues/04-pi-deploy.md` 결정 기록).
 - **Pi의 memory cgroup이 꺼져 있어 컨테이너 메모리 제한이 적용되지 않는다.** 연구자가 재부팅을 하지 않기로 해서 #4-1은 제한 없이 확인하고, 적용 방법은 Q5로 남겼다(파일럿 #6 전에 해결).
 - k6 요청 타임아웃(10초), `maxVUs`, 사전 할당 규칙과 E2 스크립트 시점은 `RESEARCH.md` 6.3과 6.5를 따른다.
@@ -28,9 +28,9 @@ Spring Boot(Kotlin)에서 요청 처리 모델(플랫폼 스레드풀 / 가상 �
 ## 바로 다음 채팅에서 할 일
 
 ### #4-1 이어서 ([issues/04-pi-deploy.md](issues/04-pi-deploy.md))
-- 시작 전에 연구자가 할 일: 맥북의 Docker Desktop을 켠다(2026-11-18에 켰다고 알림). Pi에서 `cat /boot/firmware/cmdline.txt; ls ~/cmdline.txt.bak`를 실행해 결과를 알린다(`cgroup_enable=memory`가 이미 더해졌는지 확인하려는 것이다).
-- 에이전트가 할 일: 이미지 빌드와 태그(`poolsweep-app:<해시>-jdk<21|25>`), 전송 명령 제시, Pi 기동, 맥북에서 확인. Pi 명령은 실행 전에 알리고 승인받는다(`AGENTS.md` 6장). 접속과 비밀번호는 연구자가 직접 입력한다.
-- 이미지 태그의 해시는 문서 정정 커밋(2026-11-18)의 해시로 정한다. 이 커밋 뒤에는 앱과 인프라 파일을 바꾸지 않는다.
+- 시작 전에 연구자가 할 일: Pi에서 `cat /boot/firmware/cmdline.txt; ls ~/cmdline.txt.bak`를 실행해 결과를 알린다(`cgroup_enable=memory`가 이미 더해졌는지 확인하려는 것이다). 이미지는 Pi에 적재되어 있다.
+- 에이전트가 할 일: virtual과 coroutine을 `README.md`의 Pi 배포 명령으로 띄워 확인하고, `tomcatMaxThreads` 기본값을 haiku 서브에이전트로 조회한다. Pi 명령은 실행 전에 알리고 승인받는다(`AGENTS.md` 6장). 접속과 비밀번호는 연구자가 직접 입력한다.
+- 이미지 태그의 해시는 `708639c`이며, 이 커밋 뒤 앱과 인프라 파일은 바뀌지 않았다. 바꾸면 이미지를 다시 만든다.
 ### 새 채팅에서 입력할 프롬프트
 ```
 STATUS.md를 읽고 #4-1을 이어서 진행해줘.

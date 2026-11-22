@@ -2,7 +2,7 @@
 
 Spring Boot(Kotlin)에서 요청 처리 모델(플랫폼 스레드 / 가상 스레드 / 코루틴+JDBC)에 따라 HikariCP 풀 크기의 최적점이 어떻게 달라지는지 측정하는 연구 저장소입니다. 설계와 결정은 [RESEARCH.md](RESEARCH.md)에 있습니다.
 
-이 문서는 재현 가이드입니다. 지금은 앱, 로컬 Compose(PostgreSQL, 앱 컨테이너), k6 E1(열린 모델) 스크립트, 맥북 모니터링(Prometheus, Grafana)까지 있으며, Pi 배포와 실행 자동화는 이후 작업에서 추가합니다.
+이 문서는 재현 가이드입니다. 앱, 로컬 Compose(PostgreSQL, 앱 컨테이너), k6 E1(열린 모델) 스크립트, 맥북 모니터링(Prometheus, Grafana), Pi 수동 배포의 환경과 명령을 담습니다.
 
 ## 고정 버전
 
@@ -13,7 +13,7 @@ Spring Boot(Kotlin)에서 요청 처리 모델(플랫폼 스레드 / 가상 스�
 - PostgreSQL 18.6: `postgres:18.6-bookworm@sha256:5c4783a8cc3f0074912164f94dfa1be4e043438f0f707cf968d7af9a0d31a2c8`(태그와 다중 아키텍처 digest를 함께 고정). 설정은 이미지 기본값입니다.
 - 앱 컨테이너의 JRE: `eclipse-temurin:21.0.12.1_1-jre-noble@sha256:cd35bb33859641c5374415826a5951845104093eaa401cbe9d3d9023444f1c13`, `eclipse-temurin:25.0.4.1_1-jre-noble@sha256:ce8543ddd3070ccbeaac2106a74c9387ddeb8d47a1c43348345715c1ef245c7f`([app/Dockerfile](app/Dockerfile)). JVM 옵션은 넣지 않습니다.
 - 확인한 Docker 환경: Docker 29.9.2, Compose v5.6.1 (맥북)
-- Pi 환경(2026-11-16 확인): Debian 13(trixie) arm64, 커널 6.18.39+rpt-rpi-v8, 메모리 3.7GiB, 스왑 2GiB(루트는 microSD). Docker는 공식 apt 저장소에서 `docker-ce`와 `docker-ce-cli` 5:29.9.2-1~debian.13~trixie, `containerd.io` 2.4.2-4~debian.13~trixie, `docker-compose-plugin` 5.6.1-1~debian.13~trixie를 설치하고 `apt-mark hold`로 고정했습니다. Pi에서는 `sudo docker`로 실행합니다. 배포 명령은 #4-1이 끝나면 추가합니다.
+- Pi 환경(2026-11-16 확인): Debian 13(trixie) arm64, 커널 6.18.39+rpt-rpi-v8, 메모리 3.7GiB, 스왑 2GiB(루트는 microSD). Docker는 공식 apt 저장소에서 `docker-ce`와 `docker-ce-cli` 5:29.9.2-1~debian.13~trixie, `containerd.io` 2.4.2-4~debian.13~trixie, `docker-compose-plugin` 5.6.1-1~debian.13~trixie를 설치하고 `apt-mark hold`로 고정했습니다. Pi에서는 `sudo docker`로 실행합니다. 배포 명령은 아래 "Pi 배포"에 있습니다.
 - k6 v2.3.0 (macOS arm64 공식 바이너리, SHA-256을 [load/install-k6.sh](load/install-k6.sh)에 고정)
 - Prometheus v3.15.1: `prom/prometheus:v3.15.1@sha256:fa3302279710be2f21a8301ec17a8b4f2301fd829bd113839b3b6b02b6f191a2`
 - Grafana 13.3.0: `grafana/grafana:13.3.0@sha256:488984b716c0862639f91a698adbe2862677a5a07bad42da5f03f3030883b205`
@@ -69,6 +69,45 @@ docker compose -f infra/compose.yaml down -v
 - 앱이 뜨는 데 몇 초가 걸립니다. `/ping`이 응답한 뒤 `/actuator/info`의 `processingModel`, `poolSize`, `javaVersion`으로 적용된 값을 확인합니다.
 - 앱만 바꿔 띄울 때는 `docker compose -f infra/compose.yaml stop app` 뒤에 위 기동 명령을 다시 실행합니다. 종료는 `down -v`입니다.
 - zsh에서 `C="docker compose ..."; $C up`처럼 명령을 변수에 담으면 공백이 나뉘지 않아 실패합니다. 함수나 전체 명령을 사용합니다.
+
+## Pi 배포
+
+Pi의 앱과 PostgreSQL은 맥북에서 만든 arm64 이미지를 `docker save` 파일로 옮겨 띄웁니다. 맥북의 저장소 루트에서 실행하는 단계와 Pi에서 실행하는 단계를 구분합니다. `<계정>@<Pi 주소>`는 직접 입력합니다.
+
+맥북에서 이미지를 만들고 묶습니다. `<해시>`는 `git rev-parse --short HEAD`의 값이며, 실험 전에는 변경이 모두 커밋되어 있어야 합니다.
+
+```sh
+(cd app && ./gradlew test bootJar)
+for J in 21 25; do docker build --platform linux/arm64 --build-arg JDK=$J -t poolsweep-app:<해시>-jdk$J app; done
+docker save poolsweep-app:<해시>-jdk21 poolsweep-app:<해시>-jdk25 | gzip > poolsweep-app-<해시>.tar.gz
+shasum -a 256 poolsweep-app-<해시>.tar.gz
+```
+
+맥북에서 Pi로 전송합니다. Pi의 홈에 `poolsweep/`가 생깁니다.
+
+```sh
+ssh <계정>@<Pi 주소> "mkdir -p poolsweep/infra/db"
+scp infra/compose.yaml infra/compose.pi.yaml <계정>@<Pi 주소>:poolsweep/infra/
+scp infra/db/init.sql <계정>@<Pi 주소>:poolsweep/infra/db/
+scp poolsweep-app-<해시>.tar.gz <계정>@<Pi 주소>:poolsweep/
+```
+
+Pi에서 해시를 대조하고 적재한 뒤 기동합니다. Pi에서는 `sudo docker`를 씁니다. `sudo`는 환경변수를 지우므로 변수를 `sudo env`로 넘깁니다.
+
+```sh
+sha256sum poolsweep/poolsweep-app-<해시>.tar.gz            # 맥북의 shasum 값과 같아야 합니다.
+gunzip -c poolsweep/poolsweep-app-<해시>.tar.gz | sudo docker load   # Loaded image가 두 줄 나옵니다.
+cd ~/poolsweep/infra
+sudo env APP_IMAGE=poolsweep-app:<해시>-jdk<21|25> SPRING_PROFILES_ACTIVE=<platform|virtual|coroutine> POOL_SIZE=<n> \
+  docker compose -f compose.yaml -f compose.pi.yaml up -d --wait
+sudo env APP_IMAGE=... SPRING_PROFILES_ACTIVE=... POOL_SIZE=... docker compose -f compose.yaml -f compose.pi.yaml down -v   # 종료
+```
+
+- `APP_IMAGE`가 없으면 `up`과 `down`이 모두 실패합니다. 종료할 때도 같은 값을 줍니다. 코루틴 프로파일은 `IO_PARALLELISM`을 더합니다.
+- 맥북에서 `curl http://<Pi 주소>:9080/ping`, `/query?type=pk&id=1`, `/actuator/info`로 확인합니다. Pi는 호스트 포트만 9080이고 컨테이너 안은 8080입니다. DB 포트는 열지 않습니다.
+- 앱 컨테이너만 다른 JDK로 바꿀 때는 `APP_IMAGE`만 바꿔 같은 `up` 명령을 다시 실행합니다. DB는 다시 만들어지지 않습니다.
+- 풀은 첫 커넥션 요청 때 만들어집니다. 그 전에 `/actuator/info`를 보면 `minimumIdle`이 `-1`이고, `/query`를 한 번 호출한 뒤에는 `poolSize`와 같은 값으로 바뀝니다.
+- 이 Pi는 memory cgroup이 꺼져 있어 `compose.pi.yaml`의 `mem_limit`이 적용되지 않습니다.
 
 ## 부하 생성 (k6 E1)
 

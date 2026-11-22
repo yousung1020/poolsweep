@@ -57,6 +57,7 @@
 - 2026-11-16 Pi 스왑. 스왑을 4GiB로 늘릴까? → 바꾸지 않고 2GiB로 유지해 환경 기록에 남긴다. 연구자가 처음 SSD 스왑 4GiB를 말했으나 루트는 microSD였고, 스왑이 지연 측정에 개입할 수 있어 변수 외 고정 규칙(`AGENTS.md` 2장)에 따라 유지를 선택했다. 실행 전후 스왑 사용량 확인은 #4-4에서 정한다. 기록 위치: `RESEARCH.md` 6.2, `README.md`
 - 2026-11-16 Pi의 Docker. 어떻게 설치할까? → Docker 공식 apt 저장소에서 docker-ce와 docker-ce-cli 5:29.9.2, containerd.io 2.4.2-4, docker-compose-plugin 5.6.1로 고정하고 `apt-mark hold`를 걸었다. 맥북의 29.9.2와 Compose v5.6.1에 맞춘 것이다. `docker` 그룹은 root 수준 권한을 주므로 `sudo`로 실행한다. `--no-install-recommends`로 설치해 buildx 플러그인은 없다(Pi에서는 이미지를 빌드하지 않는다). 기록 위치: `RESEARCH.md` 6.2, `README.md`
 - 2026-11-16 메모리 cgroup. Pi 부트 파라미터에 `cgroup_enable=memory`를 더하고 재부팅할까? → 연구자가 처음에 승인했다가 곧바로 번복해 재부팅을 하지 않기로 했다. 이전 줄을 고치지 않고 이 줄을 더한다. Q2의 값(앱 1.5GB, DB 1.5GB)은 그대로이고 적용만 미룬다. #4-1은 메모리 제한 없이 배포만 확인하고, 적용 방법은 Q5로 남긴다. 기록 위치: `RESEARCH.md` 6.2
+- 2026-11-22 `minimumIdle` 관찰. Pi의 platform 앱에서 풀 생성 전 `/actuator/info`의 `minimumIdle`이 `-1`이었고 `/query` 뒤 `4`로 바뀌었다. JDK 차이가 아니라 풀이 첫 커넥션 요청 때 만들어지는 시점의 차이로 보인다(JDK 21 이미지에서는 `/query` 뒤에, JDK 25 이미지에서는 기동 직후와 `/query` 뒤에 모두 관찰). 풀 생성 뒤에는 `poolSize`와 같아 고정 크기이므로 타당성에는 영향이 없다. 실행 스크립트가 `info`를 읽는 시점은 #5에서 정하며, 이번에 코드는 바꾸지 않았다.
 
 ## 작업 단위
 
@@ -69,10 +70,10 @@
   - [ ] Pi에서 명령을 실행하기 전에 연구자에게 알린다 (`AGENTS.md` 6장). 매 명령에 적용한다.
   - [x] Pi에 Docker와 Compose를 고정 버전으로 설치한다 (2026-11-16, 결정 기록 참고)
   - [x] arm64 이미지와 메모리 제한을 넣은 Pi용 Compose를 만든다 (`infra/compose.pi.yaml`, 맥북에서 `config`만 확인)
-  - [ ] 맥북에서 문서 갱신 커밋(2026-11-18) 기준 arm64 이미지를 JDK 21과 25로 빌드해 태그한다 (Docker Desktop을 켠 뒤 진행)
-  - [ ] 이미지와 Compose 파일, `infra/db/init.sql`을 Pi로 전송하고 기동한다
-  - [ ] 맥북에서 세 프로파일의 `/ping`, `/query`, `/actuator/info`를 확인한다. `availableProcessors`는 기록만 한다.
-  - [ ] 배포, 기동, 종료 명령을 `README.md`에 기록한다
+  - [x] 맥북에서 커밋 `708639c` 기준 arm64 이미지를 JDK 21과 25로 빌드해 태그한다 (2026-11-18, 두 이미지 모두 `arm64 linux`)
+  - [x] 이미지와 Compose 파일, `infra/db/init.sql`을 Pi로 전송하고 기동한다 (platform, JDK 21과 25 확인. SHA-256 일치, `docker load` 성공)
+  - [ ] 맥북에서 세 프로파일의 `/ping`, `/query`, `/actuator/info`를 확인한다. `availableProcessors`는 기록만 한다. (platform만 확인했다: `availableProcessors` 4, JDK 21과 25. virtual과 coroutine이 남았다)
+  - [x] 배포, 기동, 종료 명령을 `README.md`에 기록한다 (2026-11-22, platform으로 확인한 명령)
 
 ### #4-2 코어 분리
 - 상태: 대기
@@ -192,3 +193,17 @@
 - 남은 일: 앞선 핸드오프와 같다(이미지 빌드, 전송, 기동, 확인, 명령 기록). 전송 대상에는 이미지 외에 `infra/compose.yaml`, `infra/compose.pi.yaml`, `infra/db/init.sql`도 있다.
 - 막힌 점 / 확인 필요: `cmdline.txt` 상태는 아직 모른다. 나머지는 앞선 핸드오프와 같다.
 - 다음 세션 첫 작업: `git rev-parse --short HEAD`로 해시를 정해 두 이미지를 빌드하고, `docker save` 전송 명령을 연구자에게 먼저 알린다.
+
+### 핸드오프 (2026-11-22, #4-1 배포 확인)
+- 한 일: 맥북에서 만든 arm64 이미지(커밋 `708639c`, JDK 21과 25)를 Pi로 옮겨 platform 프로파일, 풀 크기 4로 띄우고 확인했다. 앱 코드와 설정값은 바꾸지 않았다.
+  - 전송과 적재: SHA-256이 일치했고(`c34cb005…a0c`) `docker load`로 두 이미지를 적재했다.
+  - 확인(맥북에서 `100.90.148.22:9080`): `/ping`이 `pong`, `/query?type=pk&id=1`이 id 1의 행, `/actuator/info`가 `processingModel` platform, `poolSize` 4, `availableProcessors` 4, JDK 21.0.12.1과 25.0.4.1을 반환했다. `docker ps`로 앱이 `0.0.0.0:9080->8080/tcp`, DB가 `5432/tcp`만(미공개)이고 `healthy`임을 확인했다. `mem_limit`은 기동을 막지 않았다(제한 자체는 적용되지 않는다, Q5).
+  - 관찰: 풀 생성 전 `minimumIdle`이 `-1`이고 `/query` 뒤 `4`가 된다(결정 기록 2026-11-22).
+  - 정리: 연구자가 `down -v`를 실행했다고 알렸다. 출력은 받지 못했다.
+  - [README.md](../README.md)에 "Pi 배포" 절을 더했다. 명령은 platform으로만 확인했다.
+- 남은 일: virtual과 coroutine 프로파일의 `/ping`, `/query`, `/actuator/info` 확인(#4-1의 확인 항목). 그다음 #4-2, #4-4, #4-5, Q5.
+- 막힌 점 / 확인 필요:
+  - `tomcatMaxThreads`는 yaml에 값이 없어 코드의 대체값 200이 기록된다. Spring Boot 4.1.1의 실제 기본값과 같은지 공식 문서로 확인하지 못했다.
+  - Pi의 `cmdline.txt` 상태(Q5)는 아직 모른다.
+  - `down -v` 후 `docker ps`가 비었는지 확인하지 못했다.
+- 다음 세션 첫 작업: Pi에 맞는 `APP_IMAGE`로 virtual과 coroutine을 같은 명령으로 띄워 세 엔드포인트를 확인하고, `tomcatMaxThreads` 기본값을 확인한 뒤 #4-1을 완료 처리한다. Pi 명령은 실행 전에 알린다.
